@@ -5,7 +5,7 @@ import { join, basename } from 'node:path';
 import { existsSync } from 'node:fs';
 import { readFile, appendFile } from 'node:fs/promises';
 import { getProfilesBaseDir, saveState } from '../core/state.js';
-import { createProfile } from '../core/profile.js';
+import { createProfile, profileExists } from '../core/profile.js';
 import { createBackup } from '../core/backup.js';
 import { setupSharedResources } from '../core/sharing.js';
 import { switchProfile } from '../core/switcher.js';
@@ -35,24 +35,30 @@ export const initCommand = new Command('init')
       process.exit(1);
     }
 
-    p.log.step('Backing up current ~/.claude config...');
-    await createBackup(baseDir, claudeDir);
-    p.log.success('Backup created');
-
+    // Check if already initialized
     const sharedResources: SharedResource[] = ['plugins', 'projects'];
-    p.log.step('Creating "default" profile from current config...');
-    await createProfile(baseDir, 'default', {
-      description: 'Default profile (from existing config)',
-      fromDir: claudeDir,
-    });
-    await setupSharedResources(baseDir, join(baseDir, 'profiles', 'default'), claudeDir, sharedResources);
+    if (await profileExists(baseDir, 'default')) {
+      p.log.info('Already initialized — "default" profile exists.');
+      p.log.info('Skipping backup and default profile creation.');
+    } else {
+      p.log.step('Backing up current ~/.claude config...');
+      await createBackup(baseDir, claudeDir);
+      p.log.success('Backup created');
 
-    const state: State = {
-      defaultProfile: 'default', activeProfile: 'default',
-      sharedResources, version: '0.1.0',
-    };
-    await saveState(baseDir, state);
-    p.log.success('Default profile created and activated');
+      p.log.step('Creating "default" profile from current config...');
+      await createProfile(baseDir, 'default', {
+        description: 'Default profile (from existing config)',
+        fromDir: claudeDir,
+      });
+      await setupSharedResources(baseDir, join(baseDir, 'profiles', 'default'), claudeDir, sharedResources);
+
+      const state: State = {
+        defaultProfile: 'default', activeProfile: 'default',
+        sharedResources, version: '0.1.0',
+      };
+      await saveState(baseDir, state);
+      p.log.success('Default profile created and activated');
+    }
 
     const createMore = await p.confirm({ message: 'Create additional profiles now?' });
     if (createMore && !p.isCancel(createMore)) {
