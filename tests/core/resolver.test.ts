@@ -33,18 +33,7 @@ describe('Profile Resolver', () => {
     expect(result.name).toBe('parent');
   });
 
-  it('resolves from state.json default when no file found', async () => {
-    const { saveState } = await import('../../src/core/state');
-    await saveState(ctx.baseDir, {
-      defaultProfile: 'my-default', activeProfile: null,
-      sharedResources: ['plugins', 'projects'], version: '0.1.0',
-    });
-    const result = await resolveProfile(ctx.baseDir, ctx.projectDir);
-    expect(result.name).toBe('my-default');
-    expect(result.source).toBe('default');
-  });
-
-  it('falls back to "default"', async () => {
+  it('falls back to "default" when no file or env var', async () => {
     const result = await resolveProfile(ctx.baseDir, ctx.projectDir);
     expect(result).toEqual({ name: 'default', source: 'default' });
   });

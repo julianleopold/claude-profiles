@@ -12,5 +12,5 @@ export const currentCommand = new Command('current')
       return;
     }
     const state = await loadState(baseDir);
-    console.log(state.activeProfile ?? state.defaultProfile);
+    console.log(state.activeProfile ?? 'default');
   });

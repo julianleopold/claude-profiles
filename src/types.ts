@@ -1,11 +1,10 @@
 export interface State {
-  defaultProfile: string;
+  /** Profiles map: name → directory path. "default" always points to ~/.claude */
+  profiles: Record<string, string>;
+  /** Currently active profile name (null = default = ~/.claude) */
   activeProfile: string | null;
-  sharedResources: SharedResource[];
   version: string;
 }
-
-export type SharedResource = 'plugins' | 'projects';
 
 export interface ProfileConfig {
   name: string;

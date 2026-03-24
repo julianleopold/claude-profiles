@@ -24,6 +24,6 @@ export async function resolveProfile(baseDir: string, cwd: string): Promise<Reso
     current = parent;
   }
 
-  const state = await loadState(baseDir);
-  return { name: state.defaultProfile, source: 'default' };
+  // No .claude-profile found — fall back to default
+  return { name: 'default', source: 'default' };
 }

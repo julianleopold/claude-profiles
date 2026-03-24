@@ -2,16 +2,16 @@ import { mkdir, cp, readdir, rm, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { PROFILE_NAME_REGEX, type ProfileConfig, type ProfileInfo, type ClaudeSettings } from '../types.js';
-import { loadState } from './state.js';
+import { loadState, getProfilesBaseDir, getClaudeDir } from './state.js';
 
-/** Dirs that should NOT be copied from an existing ~/.claude config */
+/** Dirs to skip when cloning from ~/.claude (ephemeral/large) */
 const EXCLUDED_DIRS = new Set([
   'plugins', 'projects', 'sessions', 'file-history',
   'debug', 'shell-snapshots', 'session-env', 'backups',
-  'todos', 'tasks', 'statslog',
+  'todos', 'tasks', 'statslog', 'cache', 'ide',
+  'paste-cache', 'telemetry',
 ]);
 
-/** Files that should NOT be copied */
 const EXCLUDED_FILES = new Set([
   'history.jsonl', 'stats-cache.json', '.session-stats.json',
 ]);
@@ -21,10 +21,12 @@ export function validateProfileName(name: string): boolean {
 }
 
 export function getProfileDir(baseDir: string, name: string): string {
+  if (name === 'default') return getClaudeDir();
   return join(baseDir, 'profiles', name);
 }
 
 export async function profileExists(baseDir: string, name: string): Promise<boolean> {
+  if (name === 'default') return true; // default always exists (it's ~/.claude)
   return existsSync(getProfileDir(baseDir, name));
 }
 
@@ -46,6 +48,9 @@ export async function createProfile(
   name: string,
   options: { description?: string; fromDir?: string } = {},
 ): Promise<string> {
+  if (name === 'default') {
+    throw new Error('"default" is reserved — it always points to ~/.claude');
+  }
   if (!validateProfileName(name)) {
     throw new Error(
       `Invalid profile name "${name}". Use lowercase alphanumeric, hyphens, underscores. Must start with a letter or number.`,
@@ -60,12 +65,15 @@ export async function createProfile(
 
   let existingStatusLineCommand: string | undefined;
 
-  if (options.fromDir) {
-    const entries = await readdir(options.fromDir, { withFileTypes: true });
+  // Default: clone from ~/.claude (the default profile)
+  const sourceDir = options.fromDir ?? getClaudeDir();
+
+  if (existsSync(sourceDir)) {
+    const entries = await readdir(sourceDir, { withFileTypes: true });
     for (const entry of entries) {
       if (EXCLUDED_DIRS.has(entry.name)) continue;
       if (EXCLUDED_FILES.has(entry.name)) continue;
-      await cp(join(options.fromDir, entry.name), join(profileDir, entry.name), { recursive: true });
+      await cp(join(sourceDir, entry.name), join(profileDir, entry.name), { recursive: true });
     }
     try {
       const existing: ClaudeSettings = JSON.parse(
@@ -81,50 +89,68 @@ export async function createProfile(
     );
   }
 
+  // Inject statusline
   const settingsPath = join(profileDir, 'settings.json');
   let settings: ClaudeSettings = {};
   try { settings = JSON.parse(await readFile(settingsPath, 'utf-8')); } catch {}
   settings.statusLine = makeStatusLine(name, existingStatusLineCommand);
   await writeFile(settingsPath, JSON.stringify(settings, null, 2) + '\n');
 
+  // Write profile metadata
   const config: ProfileConfig = { name, description: options.description, createdAt: new Date().toISOString() };
   await writeFile(join(profileDir, '.profile.json'), JSON.stringify(config, null, 2) + '\n');
+
+  // Register in state
+  const state = await loadState(baseDir);
+  state.profiles[name] = profileDir;
+  const { saveState } = await import('./state.js');
+  await saveState(baseDir, state);
 
   return profileDir;
 }
 
 export async function listProfiles(baseDir: string): Promise<ProfileInfo[]> {
-  const profilesDir = join(baseDir, 'profiles');
-  if (!existsSync(profilesDir)) return [];
-
   const state = await loadState(baseDir);
   const envConfigDir = process.env.CLAUDE_CONFIG_DIR;
-
-  const entries = await readdir(profilesDir, { withFileTypes: true });
   const profiles: ProfileInfo[] = [];
 
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const profileDir = join(profilesDir, entry.name);
-    let config: ProfileConfig = { name: entry.name, createdAt: 'unknown' };
-    try { config = JSON.parse(await readFile(join(profileDir, '.profile.json'), 'utf-8')); } catch {}
+  for (const [name, path] of Object.entries(state.profiles)) {
+    if (!existsSync(path)) continue;
 
-    const isActiveByEnv = envConfigDir ? envConfigDir === profileDir : false;
-    const isActiveByState = !envConfigDir && state.activeProfile === entry.name;
+    let config: ProfileConfig = { name, createdAt: name === 'default' ? 'built-in' : 'unknown' };
+    const metaPath = join(path, '.profile.json');
+    if (existsSync(metaPath)) {
+      try { config = JSON.parse(await readFile(metaPath, 'utf-8')); } catch {}
+    }
+    if (name === 'default') {
+      config.description = config.description ?? 'Your ~/.claude config';
+    }
+
+    // Active = CLAUDE_CONFIG_DIR points to this profile, OR it's default and no CLAUDE_CONFIG_DIR is set
+    const isActiveByEnv = envConfigDir ? envConfigDir === path : false;
+    const isActiveByState = !envConfigDir && state.activeProfile === name;
+    const isDefaultActive = !envConfigDir && !state.activeProfile && name === 'default';
 
     profiles.push({
-      name: entry.name,
-      path: profileDir,
+      name,
+      path,
       config,
-      isActive: isActiveByEnv || isActiveByState,
-      isDefault: entry.name === state.defaultProfile,
+      isActive: isActiveByEnv || isActiveByState || isDefaultActive,
+      isDefault: name === 'default',
     });
   }
 
-  return profiles.sort((a, b) => a.name.localeCompare(b.name));
+  return profiles.sort((a, b) => {
+    if (a.name === 'default') return -1;
+    if (b.name === 'default') return 1;
+    return a.name.localeCompare(b.name);
+  });
 }
 
 export async function deleteProfile(baseDir: string, name: string): Promise<void> {
+  if (name === 'default') {
+    throw new Error('Cannot delete the default profile — it is your ~/.claude config.');
+  }
   if (!(await profileExists(baseDir, name))) {
     throw new Error(`Profile "${name}" does not exist`);
   }
@@ -136,4 +162,9 @@ export async function deleteProfile(baseDir: string, name: string): Promise<void
     throw new Error(`Cannot delete "${name}" — it is currently active. Switch first.`);
   }
   await rm(profileDir, { recursive: true, force: true });
+
+  // Remove from state
+  delete state.profiles[name];
+  const { saveState } = await import('./state.js');
+  await saveState(baseDir, state);
 }

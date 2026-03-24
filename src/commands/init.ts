@@ -5,12 +5,9 @@ import { join, basename } from 'node:path';
 import { existsSync } from 'node:fs';
 import { readFile, appendFile } from 'node:fs/promises';
 import { getProfilesBaseDir, saveState } from '../core/state.js';
-import { createProfile, profileExists } from '../core/profile.js';
-import { createBackup } from '../core/backup.js';
-import { setupSharedResources } from '../core/sharing.js';
-import { switchProfile } from '../core/switcher.js';
+import { createProfile } from '../core/profile.js';
 import { getShellInitScript, detectShell } from './shell-init.js';
-import type { State, SharedResource } from '../types.js';
+import type { State } from '../types.js';
 
 const SENTINEL_START = '# >>> claude-profiles >>>';
 
@@ -23,7 +20,7 @@ function getShellConfigPath(): string {
 }
 
 export const initCommand = new Command('init')
-  .description('Set up claude-profiles for the first time')
+  .description('Set up claude-profiles (optional — your ~/.claude is already the default profile)')
   .action(async () => {
     p.intro('claude-profiles setup');
 
@@ -35,31 +32,17 @@ export const initCommand = new Command('init')
       process.exit(1);
     }
 
-    // Check if already initialized
-    const sharedResources: SharedResource[] = ['plugins', 'projects'];
-    if (await profileExists(baseDir, 'default')) {
-      p.log.info('Already initialized — "default" profile exists.');
-      p.log.info('Skipping backup and default profile creation.');
-    } else {
-      p.log.step('Backing up current ~/.claude config...');
-      await createBackup(baseDir, claudeDir);
-      p.log.success('Backup created');
+    // Initialize state if needed
+    p.log.info('Your ~/.claude is already the "default" profile — nothing to migrate.');
 
-      p.log.step('Creating "default" profile from current config...');
-      await createProfile(baseDir, 'default', {
-        description: 'Default profile (from existing config)',
-        fromDir: claudeDir,
-      });
-      await setupSharedResources(baseDir, join(baseDir, 'profiles', 'default'), claudeDir, sharedResources);
+    const state: State = {
+      profiles: {},
+      activeProfile: null,
+      version: '0.1.0',
+    };
+    await saveState(baseDir, state);
 
-      const state: State = {
-        defaultProfile: 'default', activeProfile: 'default',
-        sharedResources, version: '0.1.0',
-      };
-      await saveState(baseDir, state);
-      p.log.success('Default profile created and activated');
-    }
-
+    // Offer to create additional profiles
     const createMore = await p.confirm({ message: 'Create additional profiles now?' });
     if (createMore && !p.isCancel(createMore)) {
       let more = true;
@@ -68,13 +51,13 @@ export const initCommand = new Command('init')
         if (p.isCancel(name)) break;
         const desc = await p.text({ message: 'Description (optional):' });
         await createProfile(baseDir, name as string, { description: (desc as string) || undefined });
-        await setupSharedResources(baseDir, join(baseDir, 'profiles', name as string), claudeDir, sharedResources);
-        p.log.success(`Profile "${name}" created`);
+        p.log.success(`Profile "${name}" created (cloned from ~/.claude)`);
         const again = await p.confirm({ message: 'Create another?' });
         more = !p.isCancel(again) && !!again;
       }
     }
 
+    // Shell hook
     const shellConfig = getShellConfigPath();
     let hookAlreadyInstalled = false;
     if (existsSync(shellConfig)) {
@@ -99,7 +82,7 @@ export const initCommand = new Command('init')
     }
 
     p.note(
-      `claude-profiles use <name>         Switch profile\nclaude-profiles list               See all profiles\necho "ruflo" > .claude-profile     Auto-switch per project`,
+      `claude-profiles create <name>      Create a new profile\nclaude-profiles use <name>         Switch profile\nclaude-profiles list               See all profiles\necho "ruflo" > .claude-profile     Auto-switch per project`,
       'Quick reference',
     );
     p.outro('Setup complete!');

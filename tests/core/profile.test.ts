@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { existsSync } from 'node:fs';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createTestContext, type TestContext } from '../helpers/fixtures';
 import {
@@ -31,18 +31,21 @@ describe('Profile CRUD', () => {
   let ctx: TestContext;
   afterEach(async () => { await ctx?.cleanup(); });
 
-  it('creates a profile with minimal template', async () => {
+  it('default profile always exists', async () => {
     ctx = await createTestContext();
-    await createProfile(ctx.baseDir, 'work', { description: 'Work' });
-    const dir = getProfileDir(ctx.baseDir, 'work');
-    expect(existsSync(join(dir, 'settings.json'))).toBe(true);
-    expect(existsSync(join(dir, 'CLAUDE.md'))).toBe(true);
+    expect(await profileExists(ctx.baseDir, 'default')).toBe(true);
   });
 
-  it('creates a profile from existing Claude config', async () => {
+  it('rejects creating a profile named "default"', async () => {
     ctx = await createTestContext();
-    await createProfile(ctx.baseDir, 'imported', { fromDir: ctx.claudeDir });
-    const dir = getProfileDir(ctx.baseDir, 'imported');
+    await expect(createProfile(ctx.baseDir, 'default')).rejects.toThrow(/reserved/);
+  });
+
+  it('creates a profile by cloning from a source dir', async () => {
+    ctx = await createTestContext();
+    await createProfile(ctx.baseDir, 'work', { fromDir: ctx.claudeDir, description: 'Work' });
+    const dir = getProfileDir(ctx.baseDir, 'work');
+    expect(existsSync(join(dir, 'settings.json'))).toBe(true);
     const settings = JSON.parse(await readFile(join(dir, 'settings.json'), 'utf-8'));
     expect(settings.model).toBe('claude-sonnet-4-6');
   });
@@ -56,14 +59,6 @@ describe('Profile CRUD', () => {
     expect(settings.statusLine.command).toContain('statusline.sh');
   });
 
-  it('sets statusline on fresh profile (no existing statusline)', async () => {
-    ctx = await createTestContext();
-    await createProfile(ctx.baseDir, 'fresh');
-    const dir = getProfileDir(ctx.baseDir, 'fresh');
-    const settings = JSON.parse(await readFile(join(dir, 'settings.json'), 'utf-8'));
-    expect(settings.statusLine.command).toContain('fresh');
-  });
-
   it('rejects duplicate profile name', async () => {
     ctx = await createTestContext();
     await createProfile(ctx.baseDir, 'work');
@@ -75,43 +70,57 @@ describe('Profile CRUD', () => {
     await expect(createProfile(ctx.baseDir, '../bad')).rejects.toThrow(/invalid/i);
   });
 
-  it('lists profiles', async () => {
+  it('lists profiles including default', async () => {
     ctx = await createTestContext();
-    await createProfile(ctx.baseDir, 'alpha');
-    await createProfile(ctx.baseDir, 'beta');
+    await createProfile(ctx.baseDir, 'alpha', { fromDir: ctx.claudeDir });
     const profiles = await listProfiles(ctx.baseDir);
-    expect(profiles.map((p) => p.name)).toContain('alpha');
-    expect(profiles.map((p) => p.name)).toContain('beta');
+    const names = profiles.map((p) => p.name);
+    expect(names).toContain('default');
+    expect(names).toContain('alpha');
+  });
+
+  it('default is active when no CLAUDE_CONFIG_DIR is set', async () => {
+    ctx = await createTestContext();
+    delete process.env.CLAUDE_CONFIG_DIR;
+    const profiles = await listProfiles(ctx.baseDir);
+    const def = profiles.find((p) => p.name === 'default');
+    expect(def?.isActive).toBe(true);
   });
 
   it('marks active profile based on CLAUDE_CONFIG_DIR env var', async () => {
     ctx = await createTestContext();
-    await createProfile(ctx.baseDir, 'envactive');
+    await createProfile(ctx.baseDir, 'envactive', { fromDir: ctx.claudeDir });
     process.env.CLAUDE_CONFIG_DIR = getProfileDir(ctx.baseDir, 'envactive');
     const profiles = await listProfiles(ctx.baseDir);
-    const active = profiles.find((p) => p.name === 'envactive');
-    expect(active?.isActive).toBe(true);
+    expect(profiles.find((p) => p.name === 'envactive')?.isActive).toBe(true);
+    expect(profiles.find((p) => p.name === 'default')?.isActive).toBe(false);
     delete process.env.CLAUDE_CONFIG_DIR;
   });
 
   it('deletes a profile', async () => {
     ctx = await createTestContext();
-    await createProfile(ctx.baseDir, 'temp');
+    await createProfile(ctx.baseDir, 'temp', { fromDir: ctx.claudeDir });
     await deleteProfile(ctx.baseDir, 'temp');
     expect(await profileExists(ctx.baseDir, 'temp')).toBe(false);
   });
 
+  it('cannot delete default profile', async () => {
+    ctx = await createTestContext();
+    await expect(deleteProfile(ctx.baseDir, 'default')).rejects.toThrow(/cannot delete/i);
+  });
+
   it('refuses to delete the active profile', async () => {
     ctx = await createTestContext();
-    await createProfile(ctx.baseDir, 'active');
+    await createProfile(ctx.baseDir, 'active', { fromDir: ctx.claudeDir });
     await saveState(ctx.baseDir, {
-      defaultProfile: 'default', activeProfile: 'active',
-      sharedResources: ['plugins', 'projects'], version: '0.1.0',
+      profiles: { active: getProfileDir(ctx.baseDir, 'active') },
+      activeProfile: 'active',
+      version: '0.1.0',
     });
     await expect(deleteProfile(ctx.baseDir, 'active')).rejects.toThrow(/currently active/);
   });
 
-  it('excludes session-specific dirs when copying from existing config', async () => {
+  it('excludes session-specific dirs when cloning', async () => {
     ctx = await createTestContext();
     const { mkdir: mk } = await import('node:fs/promises');
     await mk(join(ctx.claudeDir, 'sessions'), { recursive: true });

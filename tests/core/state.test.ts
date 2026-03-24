@@ -9,19 +9,20 @@ describe('State', () => {
   it('returns default state when no file exists', async () => {
     ctx = await createTestContext();
     const state = await loadState(ctx.baseDir);
-    expect(state.defaultProfile).toBe('default');
     expect(state.activeProfile).toBeNull();
-    expect(state.sharedResources).toContain('plugins');
+    expect(state.profiles.default).toBeDefined();
   });
 
   it('saves and loads state', async () => {
     ctx = await createTestContext();
     await saveState(ctx.baseDir, {
-      defaultProfile: 'work', activeProfile: 'work',
-      sharedResources: ['plugins', 'projects'], version: '0.1.0',
+      profiles: { ruflo: '/some/path' },
+      activeProfile: 'ruflo',
+      version: '0.1.0',
     });
     const loaded = await loadState(ctx.baseDir);
-    expect(loaded.defaultProfile).toBe('work');
-    expect(loaded.activeProfile).toBe('work');
+    expect(loaded.activeProfile).toBe('ruflo');
+    expect(loaded.profiles.ruflo).toBe('/some/path');
+    expect(loaded.profiles.default).toBeDefined();
   });
 });

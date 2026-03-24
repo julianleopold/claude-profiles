@@ -44,29 +44,30 @@ function getPosixHook(shell: string): string {
   if [ -n "$profile_file" ]; then
     local target_profile
     target_profile="$(cat "$profile_file" | tr -d '[:space:]')"
-    local profile_dir="$base_dir/profiles/$target_profile"
 
-    if [ -d "$profile_dir" ]; then
-      if [ "$CLAUDE_CONFIG_DIR" != "$profile_dir" ]; then
-        export CLAUDE_CONFIG_DIR="$profile_dir"
-        export CLAUDE_PROFILES_ACTIVE="$target_profile"
-        echo "[claude-profiles] Switched to: $target_profile"
+    if [ "$target_profile" = "default" ]; then
+      # Default = ~/.claude, unset CLAUDE_CONFIG_DIR
+      if [ -n "$CLAUDE_CONFIG_DIR" ]; then
+        unset CLAUDE_CONFIG_DIR
+        export CLAUDE_PROFILES_ACTIVE="default"
+        echo "[claude-profiles] Switched to: default (~/.claude)"
       fi
     else
-      echo "[claude-profiles] Warning: profile '$target_profile' not found (from $profile_file)"
+      local profile_dir="$base_dir/profiles/$target_profile"
+      if [ -d "$profile_dir" ]; then
+        if [ "$CLAUDE_CONFIG_DIR" != "$profile_dir" ]; then
+          export CLAUDE_CONFIG_DIR="$profile_dir"
+          export CLAUDE_PROFILES_ACTIVE="$target_profile"
+          echo "[claude-profiles] Switched to: $target_profile"
+        fi
+      else
+        echo "[claude-profiles] Warning: profile '$target_profile' not found (from $profile_file)"
+      fi
     fi
-  elif [ -n "$CLAUDE_PROFILES_ACTIVE" ]; then
-    local default_profile="default"
-    if [ -f "$base_dir/state.json" ]; then
-      local parsed
-      parsed="$(grep -o '"defaultProfile":"[^"]*"' "$base_dir/state.json" | head -1 | cut -d'"' -f4)"
-      [ -n "$parsed" ] && default_profile="$parsed"
-    fi
-    local default_dir="$base_dir/profiles/$default_profile"
-    if [ -d "$default_dir" ]; then
-      export CLAUDE_CONFIG_DIR="$default_dir"
-      export CLAUDE_PROFILES_ACTIVE="$default_profile"
-    fi
+  elif [ -n "$CLAUDE_PROFILES_ACTIVE" ] && [ "$CLAUDE_PROFILES_ACTIVE" != "default" ]; then
+    # Left a profiled directory — revert to default
+    unset CLAUDE_CONFIG_DIR
+    export CLAUDE_PROFILES_ACTIVE="default"
   fi
 }
 
@@ -91,23 +92,28 @@ function getFishHook(): string {
 
   if test -n "$profile_file"
     set -l target_profile (string trim (cat "$profile_file"))
-    set -l profile_dir "$base_dir/profiles/$target_profile"
-    if test -d "$profile_dir"
-      if test "$CLAUDE_CONFIG_DIR" != "$profile_dir"
-        set -gx CLAUDE_CONFIG_DIR "$profile_dir"
-        set -gx CLAUDE_PROFILES_ACTIVE "$target_profile"
-        echo "[claude-profiles] Switched to: $target_profile"
+
+    if test "$target_profile" = "default"
+      if test -n "$CLAUDE_CONFIG_DIR"
+        set -e CLAUDE_CONFIG_DIR
+        set -gx CLAUDE_PROFILES_ACTIVE "default"
+        echo "[claude-profiles] Switched to: default (~/.claude)"
       end
     else
-      echo "[claude-profiles] Warning: profile '$target_profile' not found"
+      set -l profile_dir "$base_dir/profiles/$target_profile"
+      if test -d "$profile_dir"
+        if test "$CLAUDE_CONFIG_DIR" != "$profile_dir"
+          set -gx CLAUDE_CONFIG_DIR "$profile_dir"
+          set -gx CLAUDE_PROFILES_ACTIVE "$target_profile"
+          echo "[claude-profiles] Switched to: $target_profile"
+        end
+      else
+        echo "[claude-profiles] Warning: profile '$target_profile' not found"
+      end
     end
-  else if test -n "$CLAUDE_PROFILES_ACTIVE"
-    set -l default_profile "default"
-    set -l default_dir "$base_dir/profiles/$default_profile"
-    if test -d "$default_dir"
-      set -gx CLAUDE_CONFIG_DIR "$default_dir"
-      set -gx CLAUDE_PROFILES_ACTIVE "$default_profile"
-    end
+  else if test -n "$CLAUDE_PROFILES_ACTIVE"; and test "$CLAUDE_PROFILES_ACTIVE" != "default"
+    set -e CLAUDE_CONFIG_DIR
+    set -gx CLAUDE_PROFILES_ACTIVE "default"
   end
 end
 

@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { getProfilesBaseDir } from '../core/state.js';
-import { switchProfile } from '../core/switcher.js';
+import { switchProfile, getShellExport } from '../core/switcher.js';
 import { getProfileDir } from '../core/profile.js';
 
 export async function useAction(name: string, baseDir?: string): Promise<void> {
@@ -13,10 +13,12 @@ export const useCommand = new Command('use')
   .action(async (name: string) => {
     const baseDir = getProfilesBaseDir();
     await useAction(name, baseDir);
-    const profileDir = getProfileDir(baseDir, name);
-    console.log(`Switched to profile: ${name}`);
-    console.log(`CLAUDE_CONFIG_DIR=${profileDir}`);
+    if (name === 'default') {
+      console.log('Switched to default profile (~/.claude)');
+    } else {
+      console.log(`Switched to profile: ${name}`);
+      console.log(`CLAUDE_CONFIG_DIR=${getProfileDir(baseDir, name)}`);
+    }
     console.log('');
     console.log('>>> RESTART CLAUDE CODE for changes to take effect <<<');
-    console.log('(The shell hook will pick this up in new terminals automatically)');
   });
