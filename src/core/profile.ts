@@ -105,6 +105,18 @@ export async function createProfile(
   settings.statusLine = makeStatusLine(name, existingStatusLineCommand);
   await writeFile(settingsPath, JSON.stringify(settings, null, 2) + '\n');
 
+  // Append profile-awareness note to CLAUDE.md
+  const claudeMdPath = join(profileDir, 'CLAUDE.md');
+  const profileNote = `\n\n# Active Profile: ${name}\n\nYou are running on the "${name}" Claude Code profile (managed by claude-profiles). This profile has its own settings.json, hooks, MCP servers, and plugins — isolated from other profiles. Use /profiles-list to see all profiles, /profiles-use to switch.\n`;
+  if (existsSync(claudeMdPath)) {
+    const existing = await readFile(claudeMdPath, 'utf-8');
+    if (!existing.includes('Active Profile:')) {
+      await writeFile(claudeMdPath, existing + profileNote);
+    }
+  } else {
+    await writeFile(claudeMdPath, `# ${name} Profile\n${profileNote}`);
+  }
+
   // Write profile metadata
   const config: ProfileConfig = { name, description: options.description, createdAt: new Date().toISOString() };
   await writeFile(join(profileDir, '.profile.json'), JSON.stringify(config, null, 2) + '\n');
@@ -129,35 +141,56 @@ export async function installSlashCommands(configDir: string): Promise<void> {
   await mkdir(commandsDir, { recursive: true });
 
   const commands: Record<string, string> = {
-    'profiles.md': `Immediately run: \`claude-profiles list\`
-Then show the output and mention the user can type /profiles- to see all available subcommands.
+    'profiles.md': `Manage Claude Code profiles — switch between different configurations (settings, hooks, MCP servers, plugins).
+
+Show a brief overview of what claude-profiles does and the available commands:
+- /profiles-list — see all profiles
+- /profiles-use — switch profile
+- /profiles-create — create a new profile
+- /profiles-current — show active profile
+- /profiles-delete — delete a profile
+- /profiles-toggle — enable/disable plugins
+
+Also mention: the user is currently on the "\${CLAUDE_PROFILES_ACTIVE:-default}" profile. Profiles isolate settings.json, hooks, MCP servers, and CLAUDE.md. The default profile is ~/.claude (untouched).
 `,
 
-    'profiles-list.md': `Immediately run this exact command: \`claude-profiles list\`
+    'profiles-list.md': `List all Claude Code profiles and show which one is active.
+
+Immediately run: \`claude-profiles list\`
 Show the output to the user.
 `,
 
-    'profiles-use.md': `Ask the user which profile to switch to, then run: \`claude-profiles use <name>\`
-If the user already provided a name after the command, use it directly.
+    'profiles-use.md': `Switch to a different Claude Code profile. Changes settings, hooks, MCP servers, and plugins.
+
+If the user provided a name after the command, run: \`claude-profiles use <name>\`
+Otherwise ask which profile to switch to (run \`claude-profiles list\` first to show options).
 Remind them to restart Claude Code after switching.
 `,
 
-    'profiles-create.md': `Ask the user for a profile name and optional description, then run:
-\`claude-profiles create <name> -d "<description>"\`
-If the user already provided details after the command, use them directly.
+    'profiles-create.md': `Create a new Claude Code profile by cloning the current ~/.claude config.
+
+If the user provided details, run: \`claude-profiles create <name> -d "<description>"\`
+Otherwise ask for a name and optional description.
 `,
 
-    'profiles-current.md': `Immediately run this exact command: \`claude-profiles current\`
-Show the output to the user.
+    'profiles-current.md': `Show which Claude Code profile is currently active.
+
+Immediately run: \`claude-profiles current\`
+Show the result to the user.
 `,
 
-    'profiles-delete.md': `Ask the user which profile to delete, then run: \`claude-profiles delete <name> --force\`
-If the user already provided a name after the command, use it directly.
+    'profiles-delete.md': `Delete a Claude Code profile permanently. Cannot delete the active or default profile.
+
+If the user provided a name, run: \`claude-profiles delete <name> --force\`
+Otherwise run \`claude-profiles list\` first to show options, then ask which to delete.
 `,
 
-    'profiles-toggle.md': `Ask the user for the plugin name and whether to enable or disable it, then run:
-\`claude-profiles toggle plugin <name> on\` or \`claude-profiles toggle plugin <name> off\`
-If the user already provided details after the command, use them directly.
+    'profiles-toggle.md': `Enable or disable a plugin in the active Claude Code profile.
+
+First show available plugins by reading the active profile's settings.json:
+Run: \`cat $(claude-profiles current | xargs -I{} echo ~/.claude-profiles/profiles/{}/settings.json 2>/dev/null || echo ~/.claude/settings.json) | grep -A50 enabledPlugins\`
+Then ask the user which plugin to toggle on or off.
+Run: \`claude-profiles toggle plugin <name> on|off\`
 `,
   };
 
