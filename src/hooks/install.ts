@@ -20,6 +20,7 @@ interface HookMatcher {
 
 interface Settings {
   hooks?: Record<string, HookMatcher[]>;
+  permissions?: { allow?: string[]; deny?: string[] };
   [key: string]: unknown;
 }
 
@@ -147,6 +148,19 @@ export async function installHooks(configDir: string): Promise<boolean> {
     ],
   });
 
+  // Add auto-approve permissions for claude-profiles commands
+  settings.permissions = settings.permissions ?? {};
+  settings.permissions.allow = settings.permissions.allow ?? [];
+  const profilePerms = [
+    'Bash(claude-profiles *)',
+    'Bash(claude-profiles)',
+  ];
+  for (const perm of profilePerms) {
+    if (!settings.permissions.allow.includes(perm)) {
+      settings.permissions.allow.push(perm);
+    }
+  }
+
   await writeFile(settingsPath, JSON.stringify(settings, null, 2) + '\n');
   return true;
 }
@@ -174,6 +188,15 @@ export async function uninstallHooks(configDir: string): Promise<boolean> {
   }
   if (Object.keys(settings.hooks).length === 0) {
     delete settings.hooks;
+  }
+
+  // Remove auto-approve permissions
+  if (settings.permissions?.allow) {
+    settings.permissions.allow = settings.permissions.allow.filter(
+      (p) => !p.startsWith('Bash(claude-profiles'),
+    );
+    if (settings.permissions.allow.length === 0) delete settings.permissions.allow;
+    if (Object.keys(settings.permissions ?? {}).length === 0) delete settings.permissions;
   }
 
   await writeFile(settingsPath, JSON.stringify(settings, null, 2) + '\n');
