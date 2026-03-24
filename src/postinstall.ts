@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 /**
- * Postinstall:
+ * Postinstall — one command, everything set up:
  * 1. Adds /profiles slash commands to ~/.claude/commands/
- * 2. Installs shell hook into .zshrc/.bashrc/config.fish (with sentinel comments)
+ * 2. Installs shell hook into .zshrc/.bashrc/config.fish
+ * 3. Installs UserPromptSubmit hook for fast command execution
  *
- * Both are idempotent — safe to run multiple times.
+ * All operations are idempotent and safe to run multiple times.
  */
 import { installSlashCommands } from './core/profile.js';
 import { getClaudeDir } from './core/state.js';
+import { installHooks } from './hooks/install.js';
 import { getShellInitScript, detectShell } from './commands/shell-init.js';
 import { existsSync } from 'node:fs';
 import { readFile, appendFile } from 'node:fs/promises';
@@ -28,7 +30,7 @@ async function installShellHook(): Promise<void> {
   if (!existsSync(configFile)) return;
 
   const content = await readFile(configFile, 'utf-8');
-  if (content.includes(SENTINEL_START)) return; // already installed
+  if (content.includes(SENTINEL_START)) return;
 
   const hookScript = getShellInitScript(shell);
   await appendFile(configFile, '\n' + hookScript + '\n');
@@ -37,15 +39,20 @@ async function installShellHook(): Promise<void> {
 
 async function main() {
   const claudeDir = getClaudeDir();
+  if (!existsSync(claudeDir)) return;
 
-  // Install slash commands
-  if (existsSync(claudeDir)) {
-    await installSlashCommands(claudeDir);
-    console.log('claude-profiles: /profiles commands installed');
-  }
+  // 1. Slash commands
+  await installSlashCommands(claudeDir);
+  console.log('claude-profiles: /profiles commands installed');
 
-  // Install shell hook
+  // 2. Shell hook (auto-switch on cd)
   await installShellHook();
+
+  // 3. UserPromptSubmit hook (fast command execution)
+  const hookInstalled = await installHooks(claudeDir);
+  if (hookInstalled) {
+    console.log('claude-profiles: fast-execution hook installed');
+  }
 }
 
 main().catch(() => { /* silent fail — non-critical */ });

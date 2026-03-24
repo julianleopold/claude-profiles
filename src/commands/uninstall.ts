@@ -5,6 +5,7 @@ import { existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { homedir } from 'node:os';
 import { getProfilesBaseDir, getClaudeDir } from '../core/state.js';
+import { uninstallHooks } from '../hooks/install.js';
 
 const SENTINEL_START = '# >>> claude-profiles >>>';
 const SENTINEL_END = '# <<< claude-profiles <<<';
@@ -93,6 +94,23 @@ export const uninstallCommand = new Command('uninstall')
       message: 'Remove all profiles and shell integration?',
     });
     if (p.isCancel(confirm) || !confirm) { p.outro('Cancelled.'); return; }
+
+    // Remove hooks from settings.json
+    p.log.step('Removing hooks from settings.json...');
+    await uninstallHooks(claudeDir);
+
+    // Remove slash command files
+    p.log.step('Removing slash commands...');
+    const commandsDir = join(claudeDir, 'commands');
+    const commandFiles = ['profiles.md', 'profiles-list.md', 'profiles-use.md', 'profiles-create.md', 'profiles-current.md', 'profiles-delete.md', 'profiles-toggle.md'];
+    for (const file of commandFiles) {
+      const filePath = join(commandsDir, file);
+      if (existsSync(filePath)) await rm(filePath);
+    }
+
+    // Remove hook handler script
+    const hookHandler = join(claudeDir, 'hooks', 'claude-profiles-hook.mjs');
+    if (existsSync(hookHandler)) await rm(hookHandler);
 
     // Remove shell integration
     p.log.step('Removing shell integration...');
