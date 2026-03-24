@@ -173,6 +173,7 @@ Shared across all profiles:
 - Plugin cache (downloaded files)
 - Project/session data
 - Auth credentials
+- Auto-memory (e.g., Ruflo's learned patterns) — stored per-project in `~/.claude/projects/`, not per-profile. This is intentional: memories are about the project, not the profile.
 
 </details>
 
