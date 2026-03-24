@@ -101,8 +101,8 @@ export async function createProfile(
   const config: ProfileConfig = { name, description: options.description, createdAt: new Date().toISOString() };
   await writeFile(join(profileDir, '.profile.json'), JSON.stringify(config, null, 2) + '\n');
 
-  // Install /profiles slash command into the profile
-  await installSlashCommand(profileDir);
+  // Install /profiles slash commands into the profile
+  await installSlashCommands(profileDir);
 
   // Register in state
   const state = await loadState(baseDir);
@@ -114,42 +114,114 @@ export async function createProfile(
 }
 
 /**
- * Copies the /profiles slash command into a Claude Code config directory.
- * Works for both ~/.claude (default) and profile dirs.
+ * Installs /profiles slash commands into a Claude Code config directory.
+ * Each subcommand gets its own file for discoverability.
  */
-export async function installSlashCommand(configDir: string): Promise<void> {
+export async function installSlashCommands(configDir: string): Promise<void> {
   const commandsDir = join(configDir, 'commands');
   await mkdir(commandsDir, { recursive: true });
-  const destPath = join(commandsDir, 'profiles.md');
 
-  // Don't overwrite if already installed
-  if (existsSync(destPath)) return;
+  const commands: Record<string, string> = {
+    'profiles.md': `# /profiles — Manage Claude Code Profiles
 
-  // The command file content (inlined to avoid path resolution issues with npm global installs)
-  const content = `# /profiles — Manage Claude Code Profiles
+Overview of available profile commands. Use the specific subcommands below.
 
-Run profile management from within Claude Code by executing the corresponding CLI command.
-
-## Commands
-
-| Action | Command |
-|--------|---------|
-| List all profiles | \`claude-profiles list\` |
-| Switch profile | \`claude-profiles use <name>\` |
-| Show active profile | \`claude-profiles current\` |
-| Create a profile | \`claude-profiles create <name>\` |
-| Delete a profile | \`claude-profiles delete <name>\` |
-| Toggle a plugin | \`claude-profiles toggle plugin <name> on\\|off\` |
+Run \`claude-profiles list\` to see all profiles, or type \`/profiles-\` to see all available commands.
 
 ## Notes
-
 - After switching profiles, **restart Claude Code** for changes to take effect
-- The active profile shows in the statusline: \`default | Opus 4.6 (1M context) | ...\`
+- Non-default profiles show their name in the statusline: \`ruflo | Opus 4.6 ...\`
 - Use \`.claude-profile\` files in project roots for automatic per-directory switching
 - To edit a profile's config directly: open \`~/.claude-profiles/profiles/<name>/settings.json\`
 - To edit MCP servers: open \`~/.claude-profiles/profiles/<name>/mcp.json\`
-`;
-  await writeFile(destPath, content);
+`,
+
+    'profiles-list.md': `# /profiles-list — List all Claude Code profiles
+
+Run this command to see all available profiles and which one is active.
+
+\`\`\`bash
+claude-profiles list
+\`\`\`
+
+Output shows \`*\` next to the active profile and \`[default]\` for the default.
+`,
+
+    'profiles-use.md': `# /profiles-use — Switch to a different profile
+
+Switch the active Claude Code profile. Requires a profile name as argument.
+
+\`\`\`bash
+claude-profiles use <name>
+\`\`\`
+
+Example: \`claude-profiles use ruflo\`
+
+After switching, **restart Claude Code** for changes to take effect. The shell hook will pick up the change in new terminals automatically.
+
+To switch back to your default ~/.claude config: \`claude-profiles use default\`
+`,
+
+    'profiles-create.md': `# /profiles-create — Create a new profile
+
+Create a new profile by cloning your current ~/.claude config.
+
+\`\`\`bash
+claude-profiles create <name>
+claude-profiles create <name> -d "Description"
+claude-profiles create <name> --from /path/to/other/config
+\`\`\`
+
+Example: \`claude-profiles create ruflo -d "Ruflo orchestration setup"\`
+
+The new profile is a copy of your current config. You can then customize its settings.json, mcp.json, and CLAUDE.md independently.
+`,
+
+    'profiles-current.md': `# /profiles-current — Show the active profile
+
+Display which profile is currently active.
+
+\`\`\`bash
+claude-profiles current
+\`\`\`
+
+Returns the profile name (e.g., "default", "ruflo").
+`,
+
+    'profiles-delete.md': `# /profiles-delete — Delete a profile
+
+Delete a profile permanently. Cannot delete the active profile or the default profile.
+
+\`\`\`bash
+claude-profiles delete <name>
+claude-profiles delete <name> --force   # skip confirmation
+\`\`\`
+
+Switch to a different profile first if the one you want to delete is active.
+`,
+
+    'profiles-toggle.md': `# /profiles-toggle — Enable or disable a plugin
+
+Toggle a plugin on or off in the currently active profile.
+
+\`\`\`bash
+claude-profiles toggle plugin <name> on
+claude-profiles toggle plugin <name> off
+\`\`\`
+
+Example: \`claude-profiles toggle plugin superpowers@claude-plugins-official off\`
+
+This modifies \`enabledPlugins\` in the active profile's settings.json. Restart Claude Code for changes to take effect.
+`,
+  };
+
+  for (const [filename, content] of Object.entries(commands)) {
+    const destPath = join(commandsDir, filename);
+    // Don't overwrite if already installed
+    if (!existsSync(destPath)) {
+      await writeFile(destPath, content);
+    }
+  }
 }
 
 export async function listProfiles(baseDir: string): Promise<ProfileInfo[]> {
