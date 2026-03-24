@@ -129,96 +129,35 @@ export async function installSlashCommands(configDir: string): Promise<void> {
   await mkdir(commandsDir, { recursive: true });
 
   const commands: Record<string, string> = {
-    'profiles.md': `# /profiles — Manage Claude Code Profiles
-
-Overview of available profile commands. Use the specific subcommands below.
-
-Run \`claude-profiles list\` to see all profiles, or type \`/profiles-\` to see all available commands.
-
-## Notes
-- After switching profiles, **restart Claude Code** for changes to take effect
-- Non-default profiles show their name in the statusline: \`ruflo | Opus 4.6 ...\`
-- Use \`.claude-profile\` files in project roots for automatic per-directory switching
-- To edit a profile's config directly: open \`~/.claude-profiles/profiles/<name>/settings.json\`
-- To edit MCP servers: open \`~/.claude-profiles/profiles/<name>/mcp.json\`
+    'profiles.md': `Immediately run: \`claude-profiles list\`
+Then show the output and mention the user can type /profiles- to see all available subcommands.
 `,
 
-    'profiles-list.md': `# /profiles-list — List all Claude Code profiles
-
-Run this command to see all available profiles and which one is active.
-
-\`\`\`bash
-claude-profiles list
-\`\`\`
-
-Output shows \`*\` next to the active profile and \`[default]\` for the default.
+    'profiles-list.md': `Immediately run this exact command: \`claude-profiles list\`
+Show the output to the user.
 `,
 
-    'profiles-use.md': `# /profiles-use — Switch to a different profile
-
-Switch the active Claude Code profile. Requires a profile name as argument.
-
-\`\`\`bash
-claude-profiles use <name>
-\`\`\`
-
-Example: \`claude-profiles use ruflo\`
-
-After switching, **restart Claude Code** for changes to take effect. The shell hook will pick up the change in new terminals automatically.
-
-To switch back to your default ~/.claude config: \`claude-profiles use default\`
+    'profiles-use.md': `Ask the user which profile to switch to, then run: \`claude-profiles use <name>\`
+If the user already provided a name after the command, use it directly.
+Remind them to restart Claude Code after switching.
 `,
 
-    'profiles-create.md': `# /profiles-create — Create a new profile
-
-Create a new profile by cloning your current ~/.claude config.
-
-\`\`\`bash
-claude-profiles create <name>
-claude-profiles create <name> -d "Description"
-claude-profiles create <name> --from /path/to/other/config
-\`\`\`
-
-Example: \`claude-profiles create ruflo -d "Ruflo orchestration setup"\`
-
-The new profile is a copy of your current config. You can then customize its settings.json, mcp.json, and CLAUDE.md independently.
+    'profiles-create.md': `Ask the user for a profile name and optional description, then run:
+\`claude-profiles create <name> -d "<description>"\`
+If the user already provided details after the command, use them directly.
 `,
 
-    'profiles-current.md': `# /profiles-current — Show the active profile
-
-Display which profile is currently active.
-
-\`\`\`bash
-claude-profiles current
-\`\`\`
-
-Returns the profile name (e.g., "default", "ruflo").
+    'profiles-current.md': `Immediately run this exact command: \`claude-profiles current\`
+Show the output to the user.
 `,
 
-    'profiles-delete.md': `# /profiles-delete — Delete a profile
-
-Delete a profile permanently. Cannot delete the active profile or the default profile.
-
-\`\`\`bash
-claude-profiles delete <name>
-claude-profiles delete <name> --force   # skip confirmation
-\`\`\`
-
-Switch to a different profile first if the one you want to delete is active.
+    'profiles-delete.md': `Ask the user which profile to delete, then run: \`claude-profiles delete <name> --force\`
+If the user already provided a name after the command, use it directly.
 `,
 
-    'profiles-toggle.md': `# /profiles-toggle — Enable or disable a plugin
-
-Toggle a plugin on or off in the currently active profile.
-
-\`\`\`bash
-claude-profiles toggle plugin <name> on
-claude-profiles toggle plugin <name> off
-\`\`\`
-
-Example: \`claude-profiles toggle plugin superpowers@claude-plugins-official off\`
-
-This modifies \`enabledPlugins\` in the active profile's settings.json. Restart Claude Code for changes to take effect.
+    'profiles-toggle.md': `Ask the user for the plugin name and whether to enable or disable it, then run:
+\`claude-profiles toggle plugin <name> on\` or \`claude-profiles toggle plugin <name> off\`
+If the user already provided details after the command, use them directly.
 `,
   };
 
