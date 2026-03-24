@@ -121,8 +121,11 @@ export async function createProfile(
   const config: ProfileConfig = { name, description: options.description, createdAt: new Date().toISOString() };
   await writeFile(join(profileDir, '.profile.json'), JSON.stringify(config, null, 2) + '\n');
 
-  // Install /profiles slash commands into the profile
+  // Install /profiles slash commands and hooks into the profile
   await installSlashCommands(profileDir);
+
+  const { installHooks } = await import('../hooks/install.js');
+  await installHooks(profileDir);
 
   // Register in state
   const state = await loadState(baseDir);
