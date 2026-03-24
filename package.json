@@ -1,0 +1,53 @@
+{
+  "name": "claude-profiles",
+  "version": "0.1.0",
+  "description": "Profile switcher for Claude Code — swap settings, hooks, MCP servers, and commands between configurations",
+  "type": "module",
+  "bin": {
+    "claude-profiles": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "dev": "tsx src/index.ts",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "claude-code",
+    "profiles",
+    "configuration",
+    "mcp",
+    "ai-agents",
+    "claude",
+    "anthropic",
+    "developer-tools",
+    "cli",
+    "profile-switcher",
+    "config-management",
+    "direnv",
+    "nvm"
+  ],
+  "author": "julianleopold",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "dist/**",
+    "src/claude-commands/**",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@clack/prompts": "^1.1.0",
+    "commander": "^14.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.1"
+  }
+}
