@@ -31,12 +31,19 @@
   ],
   "author": "julianleopold",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/julianleopold/claude-profiles.git"
+  },
+  "homepage": "https://github.com/julianleopold/claude-profiles",
+  "bugs": {
+    "url": "https://github.com/julianleopold/claude-profiles/issues"
+  },
   "engines": {
     "node": ">=20.0.0"
   },
   "files": [
     "dist/**",
-    "src/claude-commands/**",
     "README.md",
     "LICENSE"
   ],

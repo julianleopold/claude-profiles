@@ -7,8 +7,8 @@ export async function toggleAction(
 ): Promise<void> {
   const dir = baseDir ?? getProfilesBaseDir();
   const state = await loadState(dir);
-  if (!state.activeProfile) throw new Error('No active profile. Run: claude-profiles init');
-  await togglePlugin(dir, state.activeProfile, pluginName, enabled);
+  const profileName = state.activeProfile ?? 'default';
+  await togglePlugin(dir, profileName, pluginName, enabled);
 }
 
 export const toggleCommand = new Command('toggle');

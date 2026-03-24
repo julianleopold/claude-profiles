@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createRequire } from 'node:module';
 import { Command } from 'commander';
 import { initCommand } from './commands/init.js';
 import { createCommand } from './commands/create.js';
@@ -10,11 +11,14 @@ import { toggleCommand } from './commands/toggle.js';
 import { uninstallCommand } from './commands/uninstall.js';
 import { getShellInitScript, detectShell } from './commands/shell-init.js';
 
+const require = createRequire(import.meta.url);
+const { version } = require('../package.json');
+
 const program = new Command();
 program
   .name('claude-profiles')
   .description('Profile switcher for Claude Code')
-  .version('0.1.0');
+  .version(version);
 
 program.addCommand(initCommand);
 program.addCommand(createCommand);

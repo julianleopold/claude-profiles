@@ -1,9 +1,8 @@
 import { mkdir, cp, readdir, rm, readFile, writeFile } from 'node:fs/promises';
-import { join, dirname } from 'node:path';
+import { join, resolve, isAbsolute } from 'node:path';
 import { existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { PROFILE_NAME_REGEX, type ProfileConfig, type ProfileInfo, type ClaudeSettings } from '../types.js';
-import { loadState, getProfilesBaseDir, getClaudeDir } from './state.js';
+import { loadState, saveState, getProfilesBaseDir, getClaudeDir } from './state.js';
 
 /** Dirs to skip when cloning from ~/.claude (ephemeral/large) */
 const EXCLUDED_DIRS = new Set([
@@ -32,11 +31,17 @@ export async function profileExists(baseDir: string, name: string): Promise<bool
 }
 
 function makeStatusLine(profileName: string, existingCommand?: string): { type: string; command: string } {
+  // profileName is validated by PROFILE_NAME_REGEX (alphanumeric + hyphens/underscores only)
+  // existingCommand comes from the source settings.json — sanitize shell metacharacters
   if (existingCommand) {
-    return {
-      type: 'command',
-      command: `echo -n "${profileName} | " && ${existingCommand}`,
-    };
+    // Only preserve the existing command if it looks safe (no backticks, $(), etc.)
+    const isSafe = !/[`$]/.test(existingCommand);
+    if (isSafe) {
+      return {
+        type: 'command',
+        command: `echo -n "${profileName} | " && ${existingCommand}`,
+      };
+    }
   }
   return {
     type: 'command',
@@ -67,7 +72,10 @@ export async function createProfile(
   let existingStatusLineCommand: string | undefined;
 
   // Default: clone from ~/.claude (the default profile)
-  const sourceDir = options.fromDir ?? getClaudeDir();
+  const sourceDir = options.fromDir ? resolve(options.fromDir) : getClaudeDir();
+  if (options.fromDir && !existsSync(sourceDir)) {
+    throw new Error(`Source directory not found: ${sourceDir}`);
+  }
 
   if (existsSync(sourceDir)) {
     const entries = await readdir(sourceDir, { withFileTypes: true });
@@ -107,7 +115,6 @@ export async function createProfile(
   // Register in state
   const state = await loadState(baseDir);
   state.profiles[name] = profileDir;
-  const { saveState } = await import('./state.js');
   await saveState(baseDir, state);
 
   return profileDir;
@@ -280,6 +287,5 @@ export async function deleteProfile(baseDir: string, name: string): Promise<void
 
   // Remove from state
   delete state.profiles[name];
-  const { saveState } = await import('./state.js');
   await saveState(baseDir, state);
 }

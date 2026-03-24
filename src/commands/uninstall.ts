@@ -1,7 +1,6 @@
 import { Command } from 'commander';
 import * as p from '@clack/prompts';
 import { cp, rm, readFile, writeFile, readdir } from 'node:fs/promises';
-import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { homedir } from 'node:os';
@@ -106,14 +105,9 @@ export const uninstallCommand = new Command('uninstall')
       await rm(baseDir, { recursive: true, force: true });
     }
 
-    // Uninstall the npm package itself
-    p.log.step('Uninstalling claude-profiles package...');
-    try {
-      execSync('npm uninstall -g claude-profiles', { stdio: 'ignore' });
-      p.log.success('Package removed');
-    } catch {
-      p.log.info('Could not auto-remove package. Run: npm uninstall -g claude-profiles');
-    }
-
+    p.note(
+      'Remove the package with your package manager:\n  npm uninstall -g claude-profiles\n  pnpm remove -g claude-profiles\n  bun remove -g claude-profiles',
+      'Final step',
+    );
     p.outro('Uninstalled. Your ~/.claude is untouched — Claude Code works as before.');
   });

@@ -43,7 +43,7 @@ function getPosixHook(shell: string): string {
 
   if [ -n "$profile_file" ]; then
     local target_profile
-    target_profile="$(cat "$profile_file" | tr -d '[:space:]')"
+    target_profile="$(tr -d '\r\n' < "$profile_file")"
 
     if [ "$target_profile" = "default" ]; then
       # Default = ~/.claude, unset CLAUDE_CONFIG_DIR
