@@ -1,6 +1,7 @@
 import { mkdir, cp, readdir, rm, readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { PROFILE_NAME_REGEX, type ProfileConfig, type ProfileInfo, type ClaudeSettings } from '../types.js';
 import { loadState, getProfilesBaseDir, getClaudeDir } from './state.js';
 
@@ -100,6 +101,9 @@ export async function createProfile(
   const config: ProfileConfig = { name, description: options.description, createdAt: new Date().toISOString() };
   await writeFile(join(profileDir, '.profile.json'), JSON.stringify(config, null, 2) + '\n');
 
+  // Install /profiles slash command into the profile
+  await installSlashCommand(profileDir);
+
   // Register in state
   const state = await loadState(baseDir);
   state.profiles[name] = profileDir;
@@ -107,6 +111,45 @@ export async function createProfile(
   await saveState(baseDir, state);
 
   return profileDir;
+}
+
+/**
+ * Copies the /profiles slash command into a Claude Code config directory.
+ * Works for both ~/.claude (default) and profile dirs.
+ */
+export async function installSlashCommand(configDir: string): Promise<void> {
+  const commandsDir = join(configDir, 'commands');
+  await mkdir(commandsDir, { recursive: true });
+  const destPath = join(commandsDir, 'profiles.md');
+
+  // Don't overwrite if already installed
+  if (existsSync(destPath)) return;
+
+  // The command file content (inlined to avoid path resolution issues with npm global installs)
+  const content = `# /profiles — Manage Claude Code Profiles
+
+Run profile management from within Claude Code by executing the corresponding CLI command.
+
+## Commands
+
+| Action | Command |
+|--------|---------|
+| List all profiles | \`claude-profiles list\` |
+| Switch profile | \`claude-profiles use <name>\` |
+| Show active profile | \`claude-profiles current\` |
+| Create a profile | \`claude-profiles create <name>\` |
+| Delete a profile | \`claude-profiles delete <name>\` |
+| Toggle a plugin | \`claude-profiles toggle plugin <name> on\\|off\` |
+
+## Notes
+
+- After switching profiles, **restart Claude Code** for changes to take effect
+- The active profile shows in the statusline: \`default | Opus 4.6 (1M context) | ...\`
+- Use \`.claude-profile\` files in project roots for automatic per-directory switching
+- To edit a profile's config directly: open \`~/.claude-profiles/profiles/<name>/settings.json\`
+- To edit MCP servers: open \`~/.claude-profiles/profiles/<name>/mcp.json\`
+`;
+  await writeFile(destPath, content);
 }
 
 export async function listProfiles(baseDir: string): Promise<ProfileInfo[]> {
