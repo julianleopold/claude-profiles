@@ -33,7 +33,7 @@ One command. Your `~/.claude` becomes the default profile automatically. No setu
 
 ## Why?
 
-The Claude Code ecosystem has grown fast. Tools like [Ruflo](https://github.com/ruvnet/ruflo), [SuperClaude](https://github.com/SuperClaude-Org/SuperClaude_Framework), and [superpowers](https://github.com/anthropics/claude-code) all install hooks, MCP servers, and settings that **conflict with each other**. You shouldn't have to choose.
+I built this because I wanted to run [Ruflo](https://github.com/ruvnet/ruflo)'s 60+ agent swarm on one profile while keeping my [superpowers](https://github.com/anthropics/claude-code) + [Vercel](https://vercel.com) setup intact on another. Installing Ruflo overwrites your hooks, MCP servers, and settings — breaking everything else. The same problem exists across the growing Claude Code ecosystem: [SuperClaude](https://github.com/SuperClaude-Org/SuperClaude_Framework), [ClaudeKit](https://github.com/carlrannaberg/claudekit), and others all compete for the same `~/.claude` directory. You shouldn't have to choose.
 
 | Without profiles | With profiles |
 |---|---|
