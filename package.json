@@ -1,6 +1,6 @@
 {
   "name": "claude-profiles",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Profile switcher for Claude Code — swap settings, hooks, MCP servers, and commands between configurations",
   "type": "module",
   "bin": {
