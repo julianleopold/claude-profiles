@@ -4,3 +4,8 @@ dist/
 .env
 .env.*
 TODO.md
+
+# Ruflo (project-level install, not part of claude-profiles)
+.claude/
+.claude-flow/
+.mcp.json

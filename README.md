@@ -37,14 +37,14 @@ One command. Your `~/.claude` becomes the default profile automatically. No setu
 
 ## Why?
 
-I built this because I wanted to run [Ruflo](https://github.com/ruvnet/ruflo)'s 60+ agent swarm on one profile while keeping my [superpowers](https://github.com/anthropics/claude-code) + [Vercel](https://vercel.com) setup intact on another. Installing Ruflo overwrites your hooks, MCP servers, and settings — breaking everything else. The same problem exists across the growing Claude Code ecosystem: [SuperClaude](https://github.com/SuperClaude-Org/SuperClaude_Framework), [ClaudeKit](https://github.com/carlrannaberg/claudekit), and others all compete for the same `~/.claude` directory. You shouldn't have to choose.
+Claude Code stores all your settings, hooks, MCP servers, and plugins in one `~/.claude` directory. That's fine until you need different setups for different contexts — work vs personal, different clients, different plugin stacks. The growing ecosystem ([SuperClaude](https://github.com/SuperClaude-Org/SuperClaude_Framework), [ClaudeKit](https://github.com/carlrannaberg/claudekit), and others) all modify the same global config. You shouldn't have to choose.
 
 | Without profiles | With profiles |
 |---|---|
 | One `~/.claude` config for everything | Multiple configs, switch instantly |
-| Installing Ruflo breaks your superpowers setup | Each tool gets its own profile |
-| Manual backup/restore when switching workflows | `claude-profiles use ruflo` |
 | Same plugins everywhere, even when you don't need them | Toggle plugins per profile |
+| Manual backup/restore when switching workflows | `claude-profiles use work` |
+| Different MCP servers for different clients? Edit manually | One command to switch |
 | No way to auto-switch per project | `.claude-profile` file per repo (like `.nvmrc`) |
 
 ## Quick Start
@@ -53,11 +53,11 @@ I built this because I wanted to run [Ruflo](https://github.com/ruvnet/ruflo)'s 
 # Install (that's it — shell hook + slash commands auto-configured)
 npm install -g claude-profiles
 
-# Create a profile for Ruflo
-claude-profiles create ruflo
+# Create a work profile
+claude-profiles create work
 
 # Switch to it
-claude-profiles use ruflo
+claude-profiles use work
 # >>> RESTART CLAUDE CODE <<<
 
 # Switch back to default
@@ -74,7 +74,7 @@ Your `~/.claude` is the **default** profile — untouched, always there. New pro
 ├── state.json                <-- which profile is active
 └── saved/
     ├── default/              <-- default profile backup
-    └── ruflo/                <-- ruflo profile config (restored to ~/.claude on switch)
+    └── work/                 <-- work profile config (restored to ~/.claude on switch)
         ├── settings.json     <-- different plugins, hooks, permissions
         ├── mcp.json          <-- different MCP servers
         └── CLAUDE.md         <-- different instructions
@@ -85,7 +85,7 @@ Your `~/.claude` is the **default** profile — untouched, always there. New pro
 Non-default profiles show their name in the Claude Code statusline:
 
 ```
-ruflo | Opus 4.6 (1M context) | ctx 9% | $5.2030 | 1h 4m
+work | Opus 4.6 (1M context) | ctx 9% | $5.2030 | 1h 4m
 ```
 
 ## Commands
@@ -117,38 +117,37 @@ These slash commands work directly in your Claude Code session:
 
 No need to leave Claude Code — the built-in hook executes commands instantly and shows the result.
 
-## Example: Setting Up Ruflo
-
-[Ruflo](https://github.com/ruvnet/ruflo) is an agent orchestration platform for Claude Code. Its `init` overwrites `CLAUDE.md` and adds hooks to `settings.json` — which conflicts with other setups. Here's how to run it alongside your existing config:
+## Example: Work vs Personal
 
 ```bash
-# 1. Create a dedicated profile for Ruflo
-claude-profiles create ruflo
+# Create separate profiles
+claude-profiles create work -d "Work — Vercel + Jira MCP servers"
+claude-profiles create personal -d "Personal — minimal plugins"
 
-# 2. Switch to it (your current config is saved, ~/.claude now has a copy)
-claude-profiles use ruflo
+# Configure each profile
+claude-profiles use work
 # >>> RESTART CLAUDE CODE <<<
+# Set up work MCP servers, plugins, permissions...
 
-# 3. Install Ruflo into this isolated profile
-npx ruflo@latest init --wizard
+claude-profiles use personal
+# >>> RESTART CLAUDE CODE <<<
+# Different plugins, no work MCP servers...
 
-# 4. Restart Claude Code — Ruflo is now active with all its agents and hooks
-
-# 5. When you're done, switch back
-claude-profiles use default
-# >>> RESTART CLAUDE CODE <<< — you're back to your original setup, untouched
+# Switch between them anytime
+claude-profiles use work      # back to work setup
+claude-profiles use default   # back to your original config
 ```
 
-This works because `claude-profiles use ruflo` swaps your config files before Ruflo's init runs. Ruflo writes to `~/.claude` thinking it's a fresh setup, but it's actually the ruflo profile's config. Your default config is safely saved in `~/.claude-profiles/saved/default/` and restored when you switch back.
+Each profile has its own `settings.json`, `mcp.json`, `CLAUDE.md`, `commands/`, and `hooks/`. Switching swaps them all atomically.
 
-> **Note:** Ruflo's `init` overwrites `CLAUDE.md` and adds hooks that may reference invalid event names ([ruvnet/ruflo#1150](https://github.com/ruvnet/ruflo/issues/1150)). Using a separate profile keeps these changes isolated.
+> **Works great with project-level tools:** Tools like [Ruflo](https://github.com/ruvnet/ruflo) install per-project (in `.claude/`), while profiles manage your global config (`~/.claude/`). They complement each other — use profiles for global settings and project-level tools for repo-specific workflows.
 
 ## Per-Project Auto-Switching
 
 Add a `.claude-profile` file to any repo:
 
 ```bash
-echo "ruflo" > .claude-profile
+echo "work" > .claude-profile
 ```
 
 When you `cd` into that directory, the shell hook automatically switches. Leave — reverts to default.
@@ -232,7 +231,7 @@ To add manually instead: `eval "$(claude-profiles shell-init)"`
 
 - [GitHub Issue #7075](https://github.com/anthropics/claude-code/issues/7075) — Feature request for native Claude Code profiles
 - [Codex CLI Profiles](https://github.com/openai/codex/blob/main/docs/config.md#profiles-and-overrides) — OpenAI's approach
-- [Ruflo](https://github.com/ruvnet/ruflo) — AI agent orchestration (great use case for profiles)
+- [Ruflo](https://github.com/ruvnet/ruflo) — AI agent orchestration (complements profiles — project-level tools + global config management)
 
 ## Contributing
 
