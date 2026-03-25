@@ -8,13 +8,17 @@ export function getProfilesBaseDir(): string {
 }
 
 export function getClaudeDir(): string {
-  return join(homedir(), '.claude');
+  return process.env.CLAUDE_PROFILES_CLAUDE_DIR ?? join(homedir(), '.claude');
+}
+
+export function getSavedDir(baseDir: string, profileName: string): string {
+  return join(baseDir, 'saved', profileName);
 }
 
 function defaultState(): State {
   return {
-    profiles: { default: getClaudeDir() },
-    activeProfile: null,
+    activeProfile: 'default',
+    profiles: ['default'],
     version: '0.1.0',
   };
 }
@@ -24,9 +28,11 @@ export async function loadState(baseDir?: string): Promise<State> {
   try {
     const raw = await readFile(join(dir, 'state.json'), 'utf-8');
     const parsed = JSON.parse(raw);
-    // Ensure default always points to ~/.claude
     const state = { ...defaultState(), ...parsed };
-    state.profiles.default = getClaudeDir();
+    // Ensure default is always in profiles list
+    if (!state.profiles.includes('default')) {
+      state.profiles.unshift('default');
+    }
     return state;
   } catch {
     return defaultState();
@@ -35,8 +41,5 @@ export async function loadState(baseDir?: string): Promise<State> {
 
 export async function saveState(baseDir: string, state: State): Promise<void> {
   await mkdir(baseDir, { recursive: true });
-  // Don't persist the default path (it's always ~/.claude)
-  const toSave = { ...state, profiles: { ...state.profiles } };
-  delete toSave.profiles.default;
-  await writeFile(join(baseDir, 'state.json'), JSON.stringify(toSave, null, 2) + '\n');
+  await writeFile(join(baseDir, 'state.json'), JSON.stringify(state, null, 2) + '\n');
 }

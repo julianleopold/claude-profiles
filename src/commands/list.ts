@@ -8,7 +8,7 @@ export const listCommand = new Command('list')
   .action(async () => {
     const profiles = await listProfiles(getProfilesBaseDir());
     if (profiles.length === 0) {
-      console.log('No profiles found. Run: claude-profiles init');
+      console.log('No profiles found. Run: claude-profiles create <name>');
       return;
     }
     for (const p of profiles) {

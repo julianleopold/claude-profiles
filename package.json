@@ -44,7 +44,6 @@
   },
   "files": [
     "dist/**",
-    "src/hooks/*.mjs",
     "README.md",
     "LICENSE"
   ],

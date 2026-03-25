@@ -1,41 +1,18 @@
 #!/usr/bin/env node
 /**
- * Postinstall — one command, everything set up:
- * 1. Adds /profiles slash commands to ~/.claude/commands/
- * 2. Installs shell hook into .zshrc/.bashrc/config.fish
- * 3. Installs UserPromptSubmit hook for fast command execution
+ * Postinstall — sets up everything on npm install:
+ * 1. Slash commands in ~/.claude/commands/
+ * 2. UserPromptSubmit hook for fast command execution
+ * 3. Auto-approve permissions for claude-profiles commands
+ * 4. Initialize state.json if not present
  *
  * All operations are idempotent and safe to run multiple times.
+ * Shell hook for auto-switch on cd is OPTIONAL (run `claude-profiles init`).
  */
 import { installSlashCommands } from './core/profile.js';
-import { getClaudeDir } from './core/state.js';
+import { getClaudeDir, getProfilesBaseDir, loadState, saveState } from './core/state.js';
 import { installHooks } from './hooks/install.js';
-import { getShellInitScript, detectShell } from './commands/shell-init.js';
 import { existsSync } from 'node:fs';
-import { readFile, appendFile } from 'node:fs/promises';
-import { join, basename } from 'node:path';
-import { homedir } from 'node:os';
-
-const SENTINEL_START = '# >>> claude-profiles >>>';
-
-async function installShellHook(): Promise<void> {
-  const shell = detectShell();
-  const home = homedir();
-  const configFile = shell === 'fish'
-    ? join(home, '.config', 'fish', 'config.fish')
-    : shell === 'bash'
-      ? join(home, '.bashrc')
-      : join(home, '.zshrc');
-
-  if (!existsSync(configFile)) return;
-
-  const content = await readFile(configFile, 'utf-8');
-  if (content.includes(SENTINEL_START)) return;
-
-  const hookScript = getShellInitScript(shell);
-  await appendFile(configFile, '\n' + hookScript + '\n');
-  console.log(`claude-profiles: shell hook added to ${basename(configFile)}`);
-}
 
 async function main() {
   const claudeDir = getClaudeDir();
@@ -45,18 +22,21 @@ async function main() {
   await installSlashCommands(claudeDir);
   console.log('claude-profiles: /profiles commands installed');
 
-  // 2. Shell hook (auto-switch on cd)
-  await installShellHook();
-
-  // 3. UserPromptSubmit hook (fast command execution)
+  // 2. UserPromptSubmit hook (fast command execution)
   const hookInstalled = await installHooks(claudeDir);
   if (hookInstalled) {
     console.log('claude-profiles: fast-execution hook installed');
   }
 
+  // 3. Initialize state if not present
+  const baseDir = getProfilesBaseDir();
+  const state = await loadState(baseDir);
+  await saveState(baseDir, state);
+
   console.log('');
-  console.log('claude-profiles: Ready! Open a new terminal for all changes to take effect.');
-  console.log('claude-profiles: Then run: claude-profiles create <name>');
+  console.log('claude-profiles: Ready!');
+  console.log('claude-profiles: Run: claude-profiles create <name>');
+  console.log('claude-profiles: Then: claude-profiles use <name>');
 }
 
 main().catch(() => { /* silent fail — non-critical */ });

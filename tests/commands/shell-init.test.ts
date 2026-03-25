@@ -24,11 +24,11 @@ describe('shell-init', () => {
     expect(script).toContain('--on-variable PWD');
   });
 
-  it('hook sets CLAUDE_CONFIG_DIR and warns on missing profiles', () => {
+  it('hook reads .claude-profile and calls claude-profiles use', () => {
     const script = getShellInitScript('zsh');
-    expect(script).toContain('CLAUDE_CONFIG_DIR');
-    expect(script).toContain('CLAUDE_PROFILES_ACTIVE');
-    expect(script).toContain('Warning');
+    expect(script).toContain('.claude-profile');
+    expect(script).toContain('claude-profiles use');
+    expect(script).toContain('claude-profiles current');
   });
 
   it('detects shell from $SHELL env var', () => {

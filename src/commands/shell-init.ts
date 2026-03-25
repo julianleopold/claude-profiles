@@ -20,6 +20,12 @@ ${content}
 # <<< claude-profiles <<<`;
 }
 
+/**
+ * Shell hook for per-project auto-switching.
+ * When you cd into a directory with a .claude-profile file,
+ * it runs `claude-profiles use <name>` to swap config files.
+ * This is OPTIONAL — basic profile switching works without the shell hook.
+ */
 function getPosixHook(shell: string): string {
   const hookSetup = shell === 'bash'
     ? `if [[ ";$PROMPT_COMMAND;" != *";_claude_profiles_hook;"* ]]; then
@@ -28,16 +34,11 @@ function getPosixHook(shell: string): string {
     : `autoload -U add-zsh-hook
   add-zsh-hook chpwd _claude_profiles_hook`;
 
-  // The hook does two things:
-  // 1. On startup: reads state.json for the active profile set by `claude-profiles use`
-  // 2. On cd: checks for .claude-profile files (per-directory auto-switch)
   return `_claude_profiles_hook() {
   local base_dir="\${CLAUDE_PROFILES_HOME:-$HOME/.claude-profiles}"
-  local state_file="$base_dir/state.json"
   local profile_file=""
   local search_dir="$PWD"
 
-  # 1. Check for .claude-profile file (per-directory override, highest priority)
   while [ "$search_dir" != "/" ]; do
     if [ -f "$search_dir/.claude-profile" ]; then
       profile_file="$search_dir/.claude-profile"
@@ -49,77 +50,21 @@ function getPosixHook(shell: string): string {
   if [ -n "$profile_file" ]; then
     local target_profile
     target_profile="$(tr -d '\r\n' < "$profile_file")"
+    local current
+    current="$(claude-profiles current 2>/dev/null)"
 
-    if [ "$target_profile" = "default" ]; then
-      if [ -n "$CLAUDE_CONFIG_DIR" ]; then
-        unset CLAUDE_CONFIG_DIR
-        export CLAUDE_PROFILES_ACTIVE="default"
-      fi
-    else
-      local profile_dir="$base_dir/profiles/$target_profile"
-      if [ -d "$profile_dir" ]; then
-        if [ "$CLAUDE_CONFIG_DIR" != "$profile_dir" ]; then
-          export CLAUDE_CONFIG_DIR="$profile_dir"
-          export CLAUDE_PROFILES_ACTIVE="$target_profile"
-        fi
-      else
-        echo "[claude-profiles] Warning: profile '$target_profile' not found (from $profile_file)"
-      fi
+    if [ -n "$target_profile" ] && [ "$target_profile" != "$current" ]; then
+      claude-profiles use "$target_profile" 2>/dev/null
+      echo "[claude-profiles] Switched to: $target_profile (restart Claude Code to apply)"
     fi
-    return
-  fi
-
-  # 2. No .claude-profile file — check state.json for active profile
-  if [ -f "$state_file" ]; then
-    local active
-    active="$(node -e "try{const s=JSON.parse(require('fs').readFileSync('$state_file','utf-8'));if(s.activeProfile&&s.activeProfile!=='null')process.stdout.write(s.activeProfile)}catch{}" 2>/dev/null)"
-    if [ -n "$active" ] && [ "$active" != "null" ]; then
-      local profile_dir="$base_dir/profiles/$active"
-      if [ -d "$profile_dir" ]; then
-        if [ "$CLAUDE_CONFIG_DIR" != "$profile_dir" ]; then
-          export CLAUDE_CONFIG_DIR="$profile_dir"
-          export CLAUDE_PROFILES_ACTIVE="$active"
-        fi
-        return
-      fi
-    fi
-  fi
-
-  # 3. No active profile — ensure we're on default
-  if [ -n "$CLAUDE_CONFIG_DIR" ]; then
-    unset CLAUDE_CONFIG_DIR
-    export CLAUDE_PROFILES_ACTIVE="default"
   fi
 }
 
-# Run on shell startup
-_claude_profiles_hook
-
-# Run on cd
 ${hookSetup}`;
 }
 
 function getFishHook(): string {
-  return `function _claude_profiles_init
-  set -l base_dir (test -n "$CLAUDE_PROFILES_HOME"; and echo $CLAUDE_PROFILES_HOME; or echo $HOME/.claude-profiles)
-  set -l state_file "$base_dir/state.json"
-
-  # Check state.json for active profile
-  if test -f "$state_file"
-    set -l active (node -e "try{const s=JSON.parse(require('fs').readFileSync('$state_file','utf-8'));if(s.activeProfile&&s.activeProfile!=='null')process.stdout.write(s.activeProfile)}catch{}" 2>/dev/null)
-    if test -n "$active"; and test "$active" != "null"
-      set -l profile_dir "$base_dir/profiles/$active"
-      if test -d "$profile_dir"
-        set -gx CLAUDE_CONFIG_DIR "$profile_dir"
-        set -gx CLAUDE_PROFILES_ACTIVE "$active"
-        return
-      end
-    end
-  end
-end
-
-function _claude_profiles_hook --on-variable PWD
-  set -l base_dir (test -n "$CLAUDE_PROFILES_HOME"; and echo $CLAUDE_PROFILES_HOME; or echo $HOME/.claude-profiles)
+  return `function _claude_profiles_hook --on-variable PWD
   set -l search_dir $PWD
   set -l profile_file ""
 
@@ -133,25 +78,12 @@ function _claude_profiles_hook --on-variable PWD
 
   if test -n "$profile_file"
     set -l target_profile (string trim (cat "$profile_file"))
+    set -l current (claude-profiles current 2>/dev/null)
 
-    if test "$target_profile" = "default"
-      if test -n "$CLAUDE_CONFIG_DIR"
-        set -e CLAUDE_CONFIG_DIR
-        set -gx CLAUDE_PROFILES_ACTIVE "default"
-      end
-    else
-      set -l profile_dir "$base_dir/profiles/$target_profile"
-      if test -d "$profile_dir"
-        if test "$CLAUDE_CONFIG_DIR" != "$profile_dir"
-          set -gx CLAUDE_CONFIG_DIR "$profile_dir"
-          set -gx CLAUDE_PROFILES_ACTIVE "$target_profile"
-        end
-      else
-        echo "[claude-profiles] Warning: profile '$target_profile' not found"
-      end
+    if test -n "$target_profile"; and test "$target_profile" != "$current"
+      claude-profiles use "$target_profile" 2>/dev/null
+      echo "[claude-profiles] Switched to: $target_profile (restart Claude Code to apply)"
     end
   end
-end
-
-_claude_profiles_init`;
+end`;
 }

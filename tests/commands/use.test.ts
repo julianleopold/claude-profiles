@@ -1,22 +1,30 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { createTestContext, type TestContext } from '../helpers/fixtures';
-import { createProfile } from '../../src/core/profile';
-import { loadState } from '../../src/core/state';
+import { createProfile, saveConfigFiles } from '../../src/core/profile';
+import { loadState, getSavedDir } from '../../src/core/state';
 import { useAction } from '../../src/commands/use';
 
 describe('use command', () => {
   let ctx: TestContext;
-  afterEach(async () => { await ctx?.cleanup(); });
+
+  beforeEach(async () => {
+    ctx = await createTestContext();
+    process.env.CLAUDE_PROFILES_CLAUDE_DIR = ctx.claudeDir;
+  });
+
+  afterEach(async () => {
+    delete process.env.CLAUDE_PROFILES_CLAUDE_DIR;
+    await ctx?.cleanup();
+  });
 
   it('switches to specified profile', async () => {
-    ctx = await createTestContext();
-    await createProfile(ctx.baseDir, 'work');
+    await saveConfigFiles(ctx.claudeDir, getSavedDir(ctx.baseDir, 'default'));
+    await createProfile(ctx.baseDir, 'work', { fromDir: ctx.claudeDir });
     await useAction('work', ctx.baseDir);
     expect((await loadState(ctx.baseDir)).activeProfile).toBe('work');
   });
 
   it('throws for non-existent profile', async () => {
-    ctx = await createTestContext();
     await expect(useAction('ghost', ctx.baseDir)).rejects.toThrow();
   });
 });

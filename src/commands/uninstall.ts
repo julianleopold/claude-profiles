@@ -1,11 +1,13 @@
 import { Command } from 'commander';
 import * as p from '@clack/prompts';
-import { cp, rm, readFile, writeFile, readdir } from 'node:fs/promises';
+import { rm, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { homedir } from 'node:os';
-import { getProfilesBaseDir, getClaudeDir } from '../core/state.js';
+import { getProfilesBaseDir, getClaudeDir, loadState } from '../core/state.js';
+import { restoreConfigFiles } from '../core/profile.js';
 import { uninstallHooks } from '../hooks/install.js';
+import { getSavedDir } from '../core/state.js';
 
 const SENTINEL_START = '# >>> claude-profiles >>>';
 const SENTINEL_END = '# <<< claude-profiles <<<';
@@ -36,71 +38,52 @@ export const uninstallCommand = new Command('uninstall')
 
     const baseDir = getProfilesBaseDir();
     const claudeDir = getClaudeDir();
-    const profilesDir = join(baseDir, 'profiles');
+    const state = await loadState(baseDir);
 
-    // Find non-default profiles
-    const nonDefaultProfiles: string[] = [];
-    if (existsSync(profilesDir)) {
-      const entries = await readdir(profilesDir, { withFileTypes: true });
-      for (const entry of entries) {
-        if (entry.isDirectory()) nonDefaultProfiles.push(entry.name);
-      }
-    }
-
-    // If there are non-default profiles, ask which config to keep as ~/.claude
-    if (nonDefaultProfiles.length > 0) {
-      const choices = [
-        { value: 'default', label: 'default — Keep ~/.claude as-is (no changes)' },
-        ...nonDefaultProfiles.map((name) => ({
-          value: name,
-          label: `${name} — Copy this profile's config into ~/.claude`,
-        })),
-      ];
+    // If not on default, offer to choose which profile to restore
+    const nonDefault = state.profiles.filter((p) => p !== 'default');
+    if (nonDefault.length > 0 && state.activeProfile !== 'default') {
+      const choices = state.profiles.map((name) => ({
+        value: name,
+        label: name === 'default'
+          ? 'default — Restore original ~/.claude config'
+          : `${name} — Keep this profile's config in ~/.claude`,
+      }));
 
       const keepChoice = await p.select({
-        message: 'Which config should remain as your ~/.claude after uninstall?',
+        message: 'Which config should remain in ~/.claude after uninstall?',
         options: choices,
       });
       if (p.isCancel(keepChoice)) { p.outro('Cancelled.'); return; }
 
-      if (keepChoice !== 'default') {
-        const confirm = await p.confirm({
-          message: `This will REPLACE ~/.claude with the "${keepChoice}" profile's config. Continue?`,
-        });
-        if (p.isCancel(confirm) || !confirm) { p.outro('Cancelled.'); return; }
-
-        const sourceDir = join(profilesDir, keepChoice as string);
-        p.log.step(`Copying "${keepChoice}" profile config into ~/.claude...`);
-
-        // Copy profile settings into ~/.claude (only config files, not ephemeral dirs)
-        const configFiles = ['settings.json', 'settings.local.json', 'mcp.json', 'CLAUDE.md'];
-        for (const file of configFiles) {
-          const src = join(sourceDir, file);
-          const dest = join(claudeDir, file);
-          if (existsSync(src)) {
-            await cp(src, dest, { force: true });
-          }
+      if (keepChoice !== state.activeProfile) {
+        const savedDir = getSavedDir(baseDir, keepChoice as string);
+        if (existsSync(savedDir)) {
+          p.log.step(`Restoring "${keepChoice}" config to ~/.claude...`);
+          await restoreConfigFiles(savedDir, claudeDir);
+          p.log.success('Config restored');
         }
-        // Copy commands dir if it exists
-        const commandsSrc = join(sourceDir, 'commands');
-        if (existsSync(commandsSrc)) {
-          await cp(commandsSrc, join(claudeDir, 'commands'), { recursive: true, force: true });
-        }
-        p.log.success(`~/.claude updated with "${keepChoice}" config`);
+      }
+    } else if (state.activeProfile !== 'default') {
+      // Restore default
+      const savedDefault = getSavedDir(baseDir, 'default');
+      if (existsSync(savedDefault)) {
+        p.log.step('Restoring default config to ~/.claude...');
+        await restoreConfigFiles(savedDefault, claudeDir);
+        p.log.success('Default config restored');
       }
     }
 
     const confirm = await p.confirm({
-      message: 'Remove all profiles and shell integration?',
+      message: 'Remove all profiles, hooks, slash commands, and shell integration?',
     });
     if (p.isCancel(confirm) || !confirm) { p.outro('Cancelled.'); return; }
 
     // Remove hooks from settings.json
-    p.log.step('Removing hooks from settings.json...');
+    p.log.step('Removing hooks...');
     await uninstallHooks(claudeDir);
 
-    // Remove slash command files
-    p.log.step('Removing slash commands...');
+    // Remove slash commands
     const commandsDir = join(claudeDir, 'commands');
     const commandFiles = ['profiles.md', 'profiles-list.md', 'profiles-use.md', 'profiles-create.md', 'profiles-current.md', 'profiles-delete.md', 'profiles-configure.md', 'profiles-toggle.md'];
     for (const file of commandFiles) {
@@ -108,7 +91,7 @@ export const uninstallCommand = new Command('uninstall')
       if (existsSync(filePath)) await rm(filePath);
     }
 
-    // Remove hook handler script
+    // Remove hook handler
     const hookHandler = join(claudeDir, 'hooks', 'claude-profiles-hook.mjs');
     if (existsSync(hookHandler)) await rm(hookHandler);
 
@@ -127,5 +110,5 @@ export const uninstallCommand = new Command('uninstall')
       'Remove the package with your package manager:\n  npm uninstall -g claude-profiles\n  pnpm remove -g claude-profiles\n  bun remove -g claude-profiles',
       'Final step',
     );
-    p.outro('Uninstalled. Your ~/.claude is untouched — Claude Code works as before.');
+    p.outro('Uninstalled. Claude Code works as before.');
   });

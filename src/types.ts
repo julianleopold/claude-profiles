@@ -1,8 +1,8 @@
 export interface State {
-  /** Profiles map: name → directory path. "default" always points to ~/.claude */
-  profiles: Record<string, string>;
-  /** Currently active profile name (null = default = ~/.claude) */
-  activeProfile: string | null;
+  /** Currently active profile name */
+  activeProfile: string;
+  /** List of all profile names (always includes "default") */
+  profiles: string[];
   version: string;
 }
 
@@ -14,7 +14,6 @@ export interface ProfileConfig {
 
 export interface ProfileInfo {
   name: string;
-  path: string;
   config: ProfileConfig;
   isActive: boolean;
   isDefault: boolean;
@@ -28,16 +27,6 @@ export interface ClaudeSettings {
   [key: string]: unknown;
 }
 
-export interface ClaudeMcpConfig {
-  mcpServers: Record<string, McpServerConfig>;
-}
-
-export interface McpServerConfig {
-  command: string;
-  args?: string[];
-  env?: Record<string, string>;
-}
-
 export interface ResolvedProfile {
   name: string;
   source: 'env' | 'file' | 'default';
@@ -46,3 +35,9 @@ export interface ResolvedProfile {
 
 /** Valid profile names: lowercase alphanumeric, hyphens, underscores, 1-63 chars */
 export const PROFILE_NAME_REGEX = /^[a-z0-9][a-z0-9_-]{0,62}$/;
+
+/** Config files that get swapped between profiles */
+export const CONFIG_FILES = ['settings.json', 'settings.local.json', 'mcp.json', 'CLAUDE.md'];
+
+/** Config directories that get swapped between profiles */
+export const CONFIG_DIRS = ['commands', 'hooks'];

@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createTestContext, type TestContext } from '../helpers/fixtures';
 import { resolveProfile } from '../../src/core/resolver';
+import { saveState } from '../../src/core/state';
 
 describe('Profile Resolver', () => {
   let ctx: TestContext;
@@ -33,7 +34,18 @@ describe('Profile Resolver', () => {
     expect(result.name).toBe('parent');
   });
 
-  it('falls back to "default" when no file or env var', async () => {
+  it('falls back to active profile from state', async () => {
+    await saveState(ctx.baseDir, {
+      activeProfile: 'work',
+      profiles: ['default', 'work'],
+      version: '0.1.0',
+    });
+    const result = await resolveProfile(ctx.baseDir, ctx.projectDir);
+    expect(result.name).toBe('work');
+    expect(result.source).toBe('default');
+  });
+
+  it('falls back to "default" when no state', async () => {
     const result = await resolveProfile(ctx.baseDir, ctx.projectDir);
     expect(result).toEqual({ name: 'default', source: 'default' });
   });

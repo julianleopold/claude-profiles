@@ -1,64 +1,74 @@
-import { describe, it, expect, afterEach } from 'vitest';
-import { writeFile } from 'node:fs/promises';
+import { describe, it, expect, afterEach, beforeEach } from 'vitest';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createTestContext, type TestContext } from '../helpers/fixtures';
-import { createProfile, listProfiles, deleteProfile, getProfileDir } from '../../src/core/profile';
+import { createProfile, listProfiles, deleteProfile, saveConfigFiles } from '../../src/core/profile';
 import { switchProfile } from '../../src/core/switcher';
-import { loadState } from '../../src/core/state';
+import { loadState, getSavedDir } from '../../src/core/state';
 import { resolveProfile } from '../../src/core/resolver';
-import { togglePlugin, getPluginToggles } from '../../src/core/toggle';
 
-describe('Full Workflow', () => {
+describe('Full Workflow (file-swap)', () => {
   let ctx: TestContext;
+
+  beforeEach(async () => {
+    ctx = await createTestContext();
+    process.env.CLAUDE_PROFILES_CLAUDE_DIR = ctx.claudeDir;
+  });
+
   afterEach(async () => {
-    delete process.env.CLAUDE_CONFIG_DIR;
+    delete process.env.CLAUDE_PROFILES_CLAUDE_DIR;
     await ctx?.cleanup();
   });
 
   it('complete user journey', async () => {
-    ctx = await createTestContext();
+    // Save default config
+    await saveConfigFiles(ctx.claudeDir, getSavedDir(ctx.baseDir, 'default'));
 
-    // Default profile exists automatically (points to ~/.claude)
-    const initialProfiles = await listProfiles(ctx.baseDir);
-    const def = initialProfiles.find((p) => p.name === 'default');
-    expect(def).toBeDefined();
-    expect(def?.isActive).toBe(true);
+    // Default profile exists and is active
+    const initial = await listProfiles(ctx.baseDir);
+    expect(initial.find((p) => p.name === 'default')?.isActive).toBe(true);
 
-    // Create ruflo profile (clones from source dir)
+    // Create ruflo profile
     await createProfile(ctx.baseDir, 'ruflo', {
       description: 'Ruflo setup',
       fromDir: ctx.claudeDir,
     });
 
-    // Switch to ruflo
+    // Verify ruflo saved config has statusline
+    const rufloSettings = JSON.parse(
+      await readFile(join(getSavedDir(ctx.baseDir, 'ruflo'), 'settings.json'), 'utf-8'),
+    );
+    expect(rufloSettings.statusLine.command).toContain('ruflo');
+
+    // Switch to ruflo (swaps files in claudeDir)
     await switchProfile(ctx.baseDir, 'ruflo');
     expect((await loadState(ctx.baseDir)).activeProfile).toBe('ruflo');
 
-    // Toggle plugins differently per profile
-    await togglePlugin(ctx.baseDir, 'ruflo', 'ruflo-plugin', true);
-    expect((await getPluginToggles(ctx.baseDir, 'ruflo'))['ruflo-plugin']).toBe(true);
+    // Verify claudeDir now has ruflo's statusline
+    const activeSettings = JSON.parse(await readFile(join(ctx.claudeDir, 'settings.json'), 'utf-8'));
+    expect(activeSettings.statusLine.command).toContain('ruflo');
 
     // Per-directory resolution
     await writeFile(join(ctx.projectDir, '.claude-profile'), 'ruflo');
     const resolved = await resolveProfile(ctx.baseDir, ctx.projectDir);
     expect(resolved.name).toBe('ruflo');
-    expect(resolved.source).toBe('file');
 
-    // List profiles — mark active by CLAUDE_CONFIG_DIR
-    process.env.CLAUDE_CONFIG_DIR = getProfileDir(ctx.baseDir, 'ruflo');
+    // List profiles
     const profiles = await listProfiles(ctx.baseDir);
+    expect(profiles).toHaveLength(2);
     expect(profiles.find((p) => p.name === 'ruflo')?.isActive).toBe(true);
     expect(profiles.find((p) => p.name === 'default')?.isActive).toBe(false);
 
-    // Switch back to default (unsets CLAUDE_CONFIG_DIR)
+    // Switch back to default
     await switchProfile(ctx.baseDir, 'default');
-    expect((await loadState(ctx.baseDir)).activeProfile).toBeNull();
+    expect((await loadState(ctx.baseDir)).activeProfile).toBe('default');
+
+    // Verify claudeDir restored default's settings (no ruflo in statusline)
+    const defaultSettings = JSON.parse(await readFile(join(ctx.claudeDir, 'settings.json'), 'utf-8'));
+    expect(defaultSettings.statusLine.command).not.toContain('ruflo');
 
     // Delete ruflo
-    delete process.env.CLAUDE_CONFIG_DIR;
     await deleteProfile(ctx.baseDir, 'ruflo');
-    const remaining = await listProfiles(ctx.baseDir);
-    expect(remaining).toHaveLength(1);
-    expect(remaining[0].name).toBe('default');
+    expect(await listProfiles(ctx.baseDir)).toHaveLength(1);
   });
 });
