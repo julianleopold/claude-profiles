@@ -39,13 +39,13 @@ function makeStatusLine(profileName: string, existingCommand?: string): { type: 
     if (isSafe) {
       return {
         type: 'command',
-        command: `echo -n "${profileName} | " && ${existingCommand}`,
+        command: `printf "%s" "${profileName} | " && ${existingCommand}`,
       };
     }
   }
   return {
     type: 'command',
-    command: `echo "${profileName} |"`,
+    command: `printf "%s" "${profileName} |"`,
   };
 }
 
