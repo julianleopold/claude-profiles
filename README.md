@@ -33,7 +33,7 @@ One command. Your `~/.claude` becomes the default profile automatically. No setu
 
 ## Why?
 
-I built this because I wanted to run [Ruflo](https://github.com/ruvnet/ruflo)'s 60+ agent swarm on one profile while keeping my [superpowers](https://github.com/anthropics/claude-code) + [Vercel](https://vercel.com) setup intact on another. Installing Ruflo overwrites your hooks, MCP servers, and settings — breaking everything else. The same problem exists across the growing Claude Code ecosystem: [SuperClaude](https://github.com/SuperClaude-Org/SuperClaude_Framework), [ClaudeKit](https://github.com/carlrannaberg/claudekit), and others all compete for the same `~/.claude` directory. You shouldn't have to choose.
+I built this because I wanted to run [Ruflo](https://github.com/ruvnet/ruflo)'s 60+ agent swarm while keeping my [superpowers](https://github.com/anthropics/claude-code) + [Vercel](https://vercel.com) setup intact. Ruflo's `init` overwrites your `CLAUDE.md` and adds its own hooks to `settings.json`. Without profiles, you lose your existing config. The same problem exists across the growing Claude Code ecosystem: [SuperClaude](https://github.com/SuperClaude-Org/SuperClaude_Framework), [ClaudeKit](https://github.com/carlrannaberg/claudekit), and others all write to `~/.claude`. You shouldn't have to choose.
 
 | Without profiles | With profiles |
 |---|---|
@@ -97,6 +97,31 @@ claude-profiles uninstall                    # Clean removal
 ```
 
 Also available as `/profiles`, `/profiles-list`, `/profiles-use`, `/profiles-create`, `/profiles-configure` inside Claude Code.
+
+## Example: Setting Up Ruflo
+
+[Ruflo](https://github.com/ruvnet/ruflo) is a popular agent orchestration platform for Claude Code. It installs its own hooks, MCP servers, and CLAUDE.md — which conflicts with other setups. Here's how to run it alongside your existing config:
+
+```bash
+# 1. Create a dedicated profile for Ruflo
+claude-profiles create ruflo
+
+# 2. Switch to it (your ~/.claude now has a clean copy of your config)
+claude-profiles use ruflo
+
+# 3. Install Ruflo into this profile
+npx ruflo@latest init --wizard
+
+# 4. Restart Claude Code — Ruflo is now active with all its agents and hooks
+
+# 5. When you're done, switch back
+claude-profiles use default
+# Restart Claude Code — you're back to your original setup, untouched
+```
+
+This works because `claude-profiles use ruflo` swaps your config files before Ruflo's init runs. Ruflo writes to `~/.claude` thinking it's a fresh setup, but it's actually the ruflo profile. Your default config is safely saved and restored when you switch back.
+
+> **Note:** Ruflo's `init` overwrites `CLAUDE.md` and adds hooks that may include invalid event names ([#1150](https://github.com/ruvnet/ruflo/issues/1150)). Using a separate profile keeps these changes isolated from your main setup.
 
 ## Per-Project Auto-Switching
 
