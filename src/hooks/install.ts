@@ -62,6 +62,8 @@ function main() {
       case 'use':
         if (!args) {
           ctx = \`[claude-profiles] Available profiles:\\n\${exec('claude-profiles list')}\\n\\nAsk which profile to switch to, then run: claude-profiles use <name>\`;
+        } else if (!validName(args.split(/\\s/)[0])) {
+          ctx = '[claude-profiles] Invalid profile name. Use lowercase alphanumeric, hyphens, underscores (1-63 chars).';
         } else {
           ctx = \`[claude-profiles] \${exec('claude-profiles use ' + esc(args))}\\n\\nShow this to the user.\`;
         }
@@ -70,8 +72,10 @@ function main() {
         if (!args) {
           ctx = '[claude-profiles] Ask for: 1) Profile name 2) Description (optional). Then run: claude-profiles create <name> -d "<desc>"';
         } else {
+          const cName = args.split(/\\s/)[0];
+          if (!validName(cName)) { ctx = '[claude-profiles] Invalid profile name. Use lowercase alphanumeric, hyphens, underscores (1-63 chars).'; break; }
           const m = args.match(/^(\\S+)\\s*[-—]\\s*(.+)$/);
-          const cmd = m ? 'claude-profiles create ' + esc(m[1]) + ' -d ' + esc(m[2]) : 'claude-profiles create ' + esc(args.split(/\\s/)[0]);
+          const cmd = m ? 'claude-profiles create ' + esc(m[1]) + ' -d ' + esc(m[2]) : 'claude-profiles create ' + esc(cName);
           ctx = \`[claude-profiles] \${exec(cmd)}\\n\\nShow this to the user.\`;
         }
         break;
@@ -79,7 +83,9 @@ function main() {
         if (!args) {
           ctx = \`[claude-profiles] Available profiles:\\n\${exec('claude-profiles list')}\\n\\nAsk which to delete, then run: claude-profiles delete <name> --force\`;
         } else {
-          ctx = \`[claude-profiles] \${exec('claude-profiles delete ' + esc(args.split(/\\s/)[0]) + ' --force')}\\n\\nShow this to the user.\`;
+          const dName = args.split(/\\s/)[0];
+          if (!validName(dName)) { ctx = '[claude-profiles] Invalid profile name.'; break; }
+          ctx = \`[claude-profiles] \${exec('claude-profiles delete ' + esc(dName) + ' --force')}\\n\\nShow this to the user.\`;
         }
         break;
       case 'toggle': {
@@ -100,6 +106,7 @@ function main() {
 
 function exec(cmd) { return execSync(cmd, { encoding: 'utf-8', timeout: 5000 }).trim(); }
 function esc(s) { return "'" + s.replace(/'/g, "'\\\\''") + "'"; }
+function validName(s) { return /^[a-z0-9][a-z0-9_-]{0,62}$/.test(s); }
 function emit(additionalContext) {
   process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext } }));
 }

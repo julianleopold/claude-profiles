@@ -29,7 +29,8 @@
     "direnv",
     "nvm"
   ],
-  "author": "julianleopold",
+  "author": "Julian Leopold (https://github.com/julianleopold)",
+  "funding": "https://github.com/sponsors/julianleopold",
   "license": "MIT",
   "repository": {
     "type": "git",

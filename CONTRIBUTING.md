@@ -31,4 +31,4 @@ npm run dev     # run CLI from source
 - `src/core/` — core logic (state, profiles, resolver, switcher, toggle)
 - `src/commands/` — CLI commands (thin wrappers around core)
 - `tests/` — vitest tests mirroring src structure
-- Default profile (`~/.claude`) is never modified — only custom profiles live in `~/.claude-profiles/profiles/`
+- Default profile (`~/.claude`) is never modified — custom profile configs are saved in `~/.claude-profiles/saved/`

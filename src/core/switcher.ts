@@ -12,11 +12,33 @@ const SWITCH_INTENT_FILE = '.switch-intent';
  */
 async function acquireLock(baseDir: string): Promise<void> {
   const lockPath = join(baseDir, LOCK_FILE);
-  if (existsSync(lockPath)) {
-    throw new Error('Another profile switch is in progress. If this is stuck, delete ~/.claude-profiles/.switch-lock');
-  }
   await mkdir(baseDir, { recursive: true });
-  await writeFile(lockPath, `${process.pid}\n${Date.now()}\n`);
+  try {
+    await writeFile(lockPath, `${process.pid}\n${Date.now()}\n`, { flag: 'wx' });
+  } catch (err: unknown) {
+    if (err && typeof err === 'object' && 'code' in err && err.code === 'EEXIST') {
+      // Check if the lock is stale (owner process dead or lock older than 60s)
+      try {
+        const { readFile: rf } = await import('node:fs/promises');
+        const contents = await rf(lockPath, 'utf-8');
+        const [pidStr, tsStr] = contents.trim().split('\n');
+        const pid = parseInt(pidStr, 10);
+        const ts = parseInt(tsStr, 10);
+        const isStale = !isNaN(ts) && Date.now() - ts > 60_000;
+        let isProcessDead = false;
+        if (!isNaN(pid)) {
+          try { process.kill(pid, 0); } catch { isProcessDead = true; }
+        }
+        if (isStale || isProcessDead) {
+          await rm(lockPath);
+          await writeFile(lockPath, `${process.pid}\n${Date.now()}\n`, { flag: 'wx' });
+          return;
+        }
+      } catch { /* fall through to error */ }
+      throw new Error('Another profile switch is in progress. If this is stuck, delete ~/.claude-profiles/.switch-lock');
+    }
+    throw err;
+  }
 }
 
 async function releaseLock(baseDir: string): Promise<void> {
@@ -36,7 +58,7 @@ async function releaseLock(baseDir: string): Promise<void> {
  * 6. Update state.json (marks switch as complete)
  * 7. Remove intent file + lock
  */
-export async function switchProfile(baseDir: string, name: string): Promise<void> {
+export async function switchProfile(baseDir: string, name: string): Promise<boolean> {
   const state = await loadState(baseDir);
 
   if (!state.profiles.includes(name)) {
@@ -44,7 +66,7 @@ export async function switchProfile(baseDir: string, name: string): Promise<void
   }
 
   if (state.activeProfile === name) {
-    return;
+    return false;
   }
 
   const claudeDir = getClaudeDir();
@@ -85,6 +107,7 @@ export async function switchProfile(baseDir: string, name: string): Promise<void
   } finally {
     await releaseLock(baseDir);
   }
+  return true;
 }
 
 /**

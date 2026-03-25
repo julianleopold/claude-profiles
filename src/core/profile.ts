@@ -68,6 +68,9 @@ export async function restoreConfigFiles(savedDir: string, targetDir: string): P
     const dest = join(targetDir, file);
     if (existsSync(src)) {
       await cp(src, dest, { force: true });
+    } else if (existsSync(dest)) {
+      // Remove files from previous profile that don't exist in the target profile
+      await rm(dest);
     }
   }
 
@@ -82,6 +85,9 @@ export async function restoreConfigFiles(savedDir: string, targetDir: string): P
       // Now swap: remove old, rename new
       if (existsSync(dest)) await rm(dest, { recursive: true, force: true });
       await rename(tempDest, dest);
+    } else if (existsSync(dest)) {
+      // Remove dirs from previous profile that don't exist in the target profile
+      await rm(dest, { recursive: true, force: true });
     }
   }
 }

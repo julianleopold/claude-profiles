@@ -13,6 +13,10 @@ toggleCommand
   .argument('<state>', '"on" or "off"')
   .description('Enable/disable a plugin in the active profile')
   .action(async (name: string, state: string) => {
+    if (state !== 'on' && state !== 'off') {
+      console.error(`Invalid state "${state}". Use "on" or "off".`);
+      process.exit(1);
+    }
     const enabled = state === 'on';
     await toggleAction(name, enabled);
     console.log(`Plugin "${name}" ${enabled ? 'enabled' : 'disabled'}`);
