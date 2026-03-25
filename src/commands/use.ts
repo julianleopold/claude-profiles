@@ -47,7 +47,7 @@ export const useCommand = new Command('use')
     const hookInstalled = await isShellHookInstalled();
     if (!hookInstalled) {
       console.log('WARNING: Shell hook is not installed!');
-      console.log('Without it, Claude Code won\'t pick up the profile switch.');
+      console.log('Without it, profile switching won\'t work.');
       console.log('');
       console.log('Run one of:');
       console.log('  claude-profiles init          # guided setup, installs hook');
@@ -55,5 +55,6 @@ export const useCommand = new Command('use')
       console.log('');
     }
 
-    console.log('>>> RESTART CLAUDE CODE for changes to take effect <<<');
+    console.log('To use this profile: open a new terminal and start Claude Code.');
+    console.log('(The new terminal picks up the profile via the shell hook)');
   });

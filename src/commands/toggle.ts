@@ -22,5 +22,5 @@ toggleCommand
     const enabled = state === 'on';
     await toggleAction(name, enabled);
     console.log(`Plugin "${name}" ${enabled ? 'enabled' : 'disabled'}`);
-    console.log('Restart Claude Code for changes to take effect.');
+    console.log('Restart Claude Code in the same terminal for changes to take effect.');
   });

@@ -53,6 +53,10 @@ async function main() {
   if (hookInstalled) {
     console.log('claude-profiles: fast-execution hook installed');
   }
+
+  console.log('');
+  console.log('claude-profiles: Ready! Open a new terminal for all changes to take effect.');
+  console.log('claude-profiles: Then run: claude-profiles create <name>');
 }
 
 main().catch(() => { /* silent fail — non-critical */ });
