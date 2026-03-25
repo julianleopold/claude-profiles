@@ -13,5 +13,5 @@ export const useCommand = new Command('use')
     const baseDir = getProfilesBaseDir();
     await useAction(name, baseDir);
     console.log(`Switched to profile: ${name}`);
-    console.log('Restart Claude Code for changes to take effect.');
+    console.log('Restart Claude Code for hooks, plugins, and MCP servers to take effect.');
   });
