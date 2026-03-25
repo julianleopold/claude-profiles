@@ -102,7 +102,7 @@ export const uninstallCommand = new Command('uninstall')
     // Remove slash command files
     p.log.step('Removing slash commands...');
     const commandsDir = join(claudeDir, 'commands');
-    const commandFiles = ['profiles.md', 'profiles-list.md', 'profiles-use.md', 'profiles-create.md', 'profiles-current.md', 'profiles-delete.md', 'profiles-toggle.md'];
+    const commandFiles = ['profiles.md', 'profiles-list.md', 'profiles-use.md', 'profiles-create.md', 'profiles-current.md', 'profiles-delete.md', 'profiles-configure.md', 'profiles-toggle.md'];
     for (const file of commandFiles) {
       const filePath = join(commandsDir, file);
       if (existsSync(filePath)) await rm(filePath);

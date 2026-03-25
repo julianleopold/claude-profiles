@@ -72,7 +72,7 @@ function getPosixHook(shell: string): string {
   # 2. No .claude-profile file — check state.json for active profile
   if [ -f "$state_file" ]; then
     local active
-    active="$(grep -o '"activeProfile":"[^"]*"' "$state_file" 2>/dev/null | head -1 | cut -d'"' -f4)"
+    active="$(node -e "try{const s=JSON.parse(require('fs').readFileSync('$state_file','utf-8'));if(s.activeProfile&&s.activeProfile!=='null')process.stdout.write(s.activeProfile)}catch{}" 2>/dev/null)"
     if [ -n "$active" ] && [ "$active" != "null" ]; then
       local profile_dir="$base_dir/profiles/$active"
       if [ -d "$profile_dir" ]; then
@@ -106,7 +106,7 @@ function getFishHook(): string {
 
   # Check state.json for active profile
   if test -f "$state_file"
-    set -l active (grep -o '"activeProfile":"[^"]*"' "$state_file" 2>/dev/null | head -1 | string replace -r '.*:"([^"]*)"' '$1')
+    set -l active (node -e "try{const s=JSON.parse(require('fs').readFileSync('$state_file','utf-8'));if(s.activeProfile&&s.activeProfile!=='null')process.stdout.write(s.activeProfile)}catch{}" 2>/dev/null)
     if test -n "$active"; and test "$active" != "null"
       set -l profile_dir "$base_dir/profiles/$active"
       if test -d "$profile_dir"
