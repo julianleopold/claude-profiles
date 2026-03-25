@@ -23,6 +23,10 @@
 
 ---
 
+<p align="center">
+  <img src="demo.gif" alt="claude-profiles demo" width="700" />
+</p>
+
 **claude-profiles** lets you maintain multiple Claude Code configurations and switch between them instantly. Different plugins, hooks, MCP servers, and settings for different workflows — without conflicts.
 
 ```bash
