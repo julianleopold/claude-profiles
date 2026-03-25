@@ -37,7 +37,7 @@ One command. Your `~/.claude` becomes the default profile automatically. No setu
 
 ## Why?
 
-Claude Code stores all your settings, hooks, MCP servers, and plugins in one `~/.claude` directory. That's fine until you need different setups for different contexts — work vs personal, different clients, different plugin stacks. The growing ecosystem ([SuperClaude](https://github.com/SuperClaude-Org/SuperClaude_Framework), [ClaudeKit](https://github.com/carlrannaberg/claudekit), and others) all modify the same global config. You shouldn't have to choose.
+Claude Code stores all your settings, hooks, MCP servers, and plugins in one `~/.claude` directory. That's fine until you need different setups — work vs personal, different clients, strict permissions for production repos vs relaxed for side projects. Plugins like [SuperClaude](https://github.com/SuperClaude-Org/SuperClaude_Framework) and [ClaudeKit](https://github.com/carlrannaberg/claudekit) modify the same global config. You shouldn't have to choose.
 
 | Without profiles | With profiles |
 |---|---|
@@ -140,8 +140,6 @@ claude-profiles use default   # back to your original config
 
 Each profile has its own `settings.json`, `mcp.json`, `CLAUDE.md`, `commands/`, and `hooks/`. Switching swaps them all atomically.
 
-> **Works great with project-level tools:** Tools like [Ruflo](https://github.com/ruvnet/ruflo) install per-project (in `.claude/`), while profiles manage your global config (`~/.claude/`). They complement each other — use profiles for global settings and project-level tools for repo-specific workflows.
-
 ## Per-Project Auto-Switching
 
 Add a `.claude-profile` file to any repo:
@@ -231,7 +229,6 @@ To add manually instead: `eval "$(claude-profiles shell-init)"`
 
 - [GitHub Issue #7075](https://github.com/anthropics/claude-code/issues/7075) — Feature request for native Claude Code profiles
 - [Codex CLI Profiles](https://github.com/openai/codex/blob/main/docs/config.md#profiles-and-overrides) — OpenAI's approach
-- [Ruflo](https://github.com/ruvnet/ruflo) — AI agent orchestration (complements profiles — project-level tools + global config management)
 
 ## Contributing
 
