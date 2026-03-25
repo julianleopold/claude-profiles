@@ -1,4 +1,4 @@
-import { mkdir, cp, rm, readFile, writeFile, readdir } from 'node:fs/promises';
+import { mkdir, cp, rm, rename, readFile, writeFile, readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { PROFILE_NAME_REGEX, CONFIG_FILES, CONFIG_DIRS, type ProfileConfig, type ProfileInfo, type ClaudeSettings } from '../types.js';
@@ -49,6 +49,7 @@ export async function saveConfigFiles(sourceDir: string, savedDir: string): Prom
 
 /**
  * Restore config files from a saved profile directory to a target directory.
+ * Uses temp-then-rename for directories to avoid data loss if cp fails mid-way.
  */
 export async function restoreConfigFiles(savedDir: string, targetDir: string): Promise<void> {
   for (const file of CONFIG_FILES) {
@@ -63,8 +64,13 @@ export async function restoreConfigFiles(savedDir: string, targetDir: string): P
     const src = join(savedDir, dir);
     const dest = join(targetDir, dir);
     if (existsSync(src)) {
+      // Copy to temp dir first, then swap atomically
+      const tempDest = dest + '.new';
+      if (existsSync(tempDest)) await rm(tempDest, { recursive: true, force: true });
+      await cp(src, tempDest, { recursive: true });
+      // Now swap: remove old, rename new
       if (existsSync(dest)) await rm(dest, { recursive: true, force: true });
-      await cp(src, dest, { recursive: true });
+      await rename(tempDest, dest);
     }
   }
 }
