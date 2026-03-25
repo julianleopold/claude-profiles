@@ -101,7 +101,21 @@ claude-profiles init                         # Guided setup (optional)
 claude-profiles uninstall                    # Clean removal
 ```
 
-Also available as `/profiles`, `/profiles-list`, `/profiles-use`, `/profiles-create`, `/profiles-configure` inside Claude Code.
+### Inside Claude Code
+
+These slash commands work directly in your Claude Code session:
+
+```
+/profiles              # List profiles + show available commands
+/profiles-list         # List all profiles (* = active)
+/profiles-use <name>   # Switch profile
+/profiles-create <name> - <description>  # Create a new profile
+/profiles-current      # Show active profile
+/profiles-delete <name>  # Delete a profile
+/profiles-configure    # Toggle plugins in the active profile
+```
+
+No need to leave Claude Code — the built-in hook executes commands instantly and shows the result.
 
 ## Example: Setting Up Ruflo
 
