@@ -65,12 +65,22 @@ export const uninstallCommand = new Command('uninstall')
         }
       }
     } else if (state.activeProfile !== 'default') {
-      // Restore default
+      // Restore default automatically
       const savedDefault = getSavedDir(baseDir, 'default');
       if (existsSync(savedDefault)) {
         p.log.step('Restoring default config to ~/.claude...');
         await restoreConfigFiles(savedDefault, claudeDir);
         p.log.success('Default config restored');
+      } else {
+        // Last resort: try safety backup
+        const safetyBackup = join(claudeDir, '.profiles-backup');
+        if (existsSync(safetyBackup)) {
+          p.log.step('Restoring from safety backup...');
+          await restoreConfigFiles(safetyBackup, claudeDir);
+          p.log.success('Config restored from safety backup');
+        } else {
+          p.log.warn('Could not find saved default config. Your ~/.claude may need manual restoration.');
+        }
       }
     }
 
@@ -100,14 +110,36 @@ export const uninstallCommand = new Command('uninstall')
     const cleaned = await removeShellIntegration();
     if (cleaned.length > 0) p.log.success(`Removed from: ${cleaned.join(', ')}`);
 
-    // Remove profiles data
-    if (existsSync(baseDir)) {
-      p.log.step('Removing ~/.claude-profiles...');
+    // Ask about saved profiles
+    const savedDir = join(baseDir, 'saved');
+    if (existsSync(savedDir)) {
+      const keepSaved = await p.confirm({
+        message: 'Keep saved profile configs in ~/.claude-profiles/saved/? (You can restore them later)',
+      });
+
+      if (p.isCancel(keepSaved) || !keepSaved) {
+        // Delete everything
+        if (existsSync(baseDir)) {
+          p.log.step('Removing ~/.claude-profiles...');
+          await rm(baseDir, { recursive: true, force: true });
+        }
+      } else {
+        // Keep saved/, delete only state + lock files
+        p.log.step('Keeping saved profiles, removing state files...');
+        const stateFile = join(baseDir, 'state.json');
+        if (existsSync(stateFile)) await rm(stateFile);
+        const lockFile = join(baseDir, '.switch-lock');
+        if (existsSync(lockFile)) await rm(lockFile);
+        const intentFile = join(baseDir, '.switch-intent');
+        if (existsSync(intentFile)) await rm(intentFile);
+        p.log.success(`Saved profiles kept at ${savedDir}`);
+      }
+    } else if (existsSync(baseDir)) {
       await rm(baseDir, { recursive: true, force: true });
     }
 
     p.note(
-      'Remove the package with your package manager:\n  npm uninstall -g claude-profiles\n  pnpm remove -g claude-profiles\n  bun remove -g claude-profiles',
+      `A safety backup of your original config exists at ~/.claude/.profiles-backup\n\nRemove the package with your package manager:\n  npm uninstall -g claude-profiles\n  pnpm remove -g claude-profiles\n  bun remove -g claude-profiles`,
       'Final step',
     );
     p.outro('Uninstalled. Claude Code works as before.');

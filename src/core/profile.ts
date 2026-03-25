@@ -25,6 +25,17 @@ function makeStatusLine(profileName: string, existingCommand?: string): { type: 
 }
 
 /**
+ * Create a one-time safety backup of ~/.claude config files.
+ * This backup is NEVER deleted — even on uninstall.
+ * Stored outside ~/.claude-profiles so uninstall can't destroy it.
+ */
+export async function createSafetyBackup(claudeDir: string): Promise<void> {
+  const backupDir = join(claudeDir, '.profiles-backup');
+  if (existsSync(backupDir)) return; // Already exists, never overwrite
+  await saveConfigFiles(claudeDir, backupDir);
+}
+
+/**
  * Save config files from a source directory to a saved profile directory.
  */
 export async function saveConfigFiles(sourceDir: string, savedDir: string): Promise<void> {
@@ -98,6 +109,9 @@ export async function createProfile(
   if (!existsSync(sourceDir)) {
     throw new Error(`Source directory not found: ${sourceDir}`);
   }
+
+  // Create safety backup on first profile creation (never deleted, even on uninstall)
+  await createSafetyBackup(getClaudeDir());
 
   const savedDir = getSavedDir(baseDir, name);
 
