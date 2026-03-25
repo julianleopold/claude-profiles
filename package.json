@@ -1,6 +1,6 @@
 {
   "name": "claude-profiles",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "Profile switcher for Claude Code — swap settings, hooks, MCP servers, and commands between configurations",
   "type": "module",
   "bin": {
@@ -10,8 +10,8 @@
     "build": "tsup src/index.ts src/postinstall.ts --format esm --clean",
     "postinstall": "node dist/postinstall.js 2>/dev/null || true",
     "dev": "tsx src/index.ts",
-    "test": "vitest",
-    "test:run": "vitest run",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "tsc --noEmit"
   },
   "keywords": [

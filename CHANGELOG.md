@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-25
+
 ### Fixed
 - Atomic lockfile acquisition prevents race conditions on concurrent switches
 - Stale lock auto-recovery (detects dead PID or locks older than 60s)
@@ -13,11 +15,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Hook handler validates profile names before executing shell commands
 - Toggle command rejects invalid state values (must be "on" or "off")
 - Switching to the already-active profile shows "already active" instead of doing a full swap
+- `npm test` now runs once and exits (was watch mode)
 
 ### Changed
 - README documents correct file-swap architecture (was incorrectly describing `CLAUDE_CONFIG_DIR`)
 - SECURITY.md lists 0.2.x as supported
 - Added Ruflo setup guide to README with step-by-step workflow
+
+### Added
+- CHANGELOG.md
+- CODEOWNERS file
+- Issue template config redirects questions to Discussions
+- npm funding field for GitHub Sponsors
 
 ## [0.2.3] - 2025-03-24
 
@@ -62,7 +71,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Uninstall command with clean removal
 - End-to-end test coverage
 
-[Unreleased]: https://github.com/julianleopold/claude-profiles/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/julianleopold/claude-profiles/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/julianleopold/claude-profiles/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/julianleopold/claude-profiles/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/julianleopold/claude-profiles/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/julianleopold/claude-profiles/compare/v0.2.0...v0.2.1
