@@ -1,18 +1,35 @@
 <p align="center">
-  <h1 align="center">claude-profiles</h1>
-  <p align="center">Swap Claude Code configurations in one command</p>
+  <img src="https://img.shields.io/badge/claude--profiles-Profile%20Switcher%20for%20Claude%20Code-8B5CF6?style=for-the-badge&labelColor=1a1a2e&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM4QjVDRjYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTYgMjFWNWEyIDIgMCAwIDAtMi0ySDZhMiAyIDAgMCAwLTIgMnYxNiIvPjxwYXRoIGQ9Ik0yMCAyMVY5YTIgMiAwIDAgMC0yLTJoLTIiLz48cGF0aCBkPSJNOCA4aDF2MiIvPjxwYXRoIGQ9Ik04IDEyaDF2MiIvPjwvc3ZnPg==" alt="claude-profiles" />
+</p>
+
+<h1 align="center">claude-profiles</h1>
+<p align="center"><strong>Swap Claude Code configurations in one command</strong></p>
+
+<p align="center">
+  <a href="https://github.com/julianleopold/claude-profiles/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/julianleopold/claude-profiles/ci.yml?style=flat-square&label=tests" alt="CI" /></a>
+  <a href="https://www.npmjs.com/package/claude-profiles"><img src="https://img.shields.io/npm/v/claude-profiles?style=flat-square&color=blue" alt="npm" /></a>
+  <a href="https://www.npmjs.com/package/claude-profiles"><img src="https://img.shields.io/npm/dm/claude-profiles?style=flat-square" alt="downloads" /></a>
+  <a href="https://github.com/julianleopold/claude-profiles/blob/main/LICENSE"><img src="https://img.shields.io/github/license/julianleopold/claude-profiles?style=flat-square" alt="license" /></a>
+  <a href="https://github.com/julianleopold/claude-profiles/stargazers"><img src="https://img.shields.io/github/stars/julianleopold/claude-profiles?style=flat-square" alt="stars" /></a>
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/claude-profiles"><img src="https://img.shields.io/npm/v/claude-profiles?style=for-the-badge&color=blue" alt="npm version" /></a>
-  <a href="https://www.npmjs.com/package/claude-profiles"><img src="https://img.shields.io/npm/dm/claude-profiles?style=for-the-badge" alt="npm downloads" /></a>
-  <a href="https://github.com/julianleopold/claude-profiles/blob/main/LICENSE"><img src="https://img.shields.io/github/license/julianleopold/claude-profiles?style=for-the-badge" alt="license" /></a>
-  <a href="https://github.com/julianleopold/claude-profiles/stargazers"><img src="https://img.shields.io/github/stars/julianleopold/claude-profiles?style=for-the-badge" alt="stars" /></a>
+  <a href="#quick-start">Quick Start</a> &bull;
+  <a href="#commands">Commands</a> &bull;
+  <a href="#per-project-auto-switching">Auto-Switching</a> &bull;
+  <a href="https://www.npmjs.com/package/claude-profiles">npm</a> &bull;
+  <a href="https://github.com/julianleopold/claude-profiles/discussions">Discussions</a>
 </p>
 
 ---
 
 **claude-profiles** lets you maintain multiple Claude Code configurations and switch between them instantly. Different plugins, hooks, MCP servers, and settings for different workflows — without conflicts.
+
+```bash
+npm install -g claude-profiles
+```
+
+One command. Your `~/.claude` becomes the default profile automatically. No setup wizard needed.
 
 ## Why?
 
@@ -29,138 +46,98 @@ The Claude Code ecosystem has grown fast. Tools like [Ruflo](https://github.com/
 ## Quick Start
 
 ```bash
+# Install (that's it — shell hook + slash commands auto-configured)
 npm install -g claude-profiles
-claude-profiles init
-```
 
-That's it. Your current `~/.claude` is backed up and becomes the `default` profile. The init wizard offers to:
-- Create additional profiles
-- Add the shell hook to your `.zshrc`/`.bashrc`/`config.fish`
+# Create a profile for Ruflo
+claude-profiles create ruflo
+
+# Switch to it
+claude-profiles use ruflo
+# >>> RESTART CLAUDE CODE <<<
+
+# Switch back to default
+claude-profiles use default
+```
 
 ## How It Works
 
-```
-~/.claude-profiles/
-├── state.json              # Active profile, defaults
-├── .pre-profiles-backup/   # Your original ~/.claude (safe)
-├── profiles/
-│   ├── default/            # Your current setup
-│   │   ├── settings.json   # Plugins, hooks, permissions
-│   │   ├── mcp.json        # MCP servers
-│   │   └── CLAUDE.md       # Instructions
-│   └── ruflo/              # Ruflo setup
-│       ├── settings.json   # Different plugins, hooks
-│       ├── mcp.json        # Different MCP servers
-│       └── CLAUDE.md       # Different instructions
-└── shared/
-    ├── plugins/            # Plugin cache (shared, not duplicated)
-    └── projects/           # Session data (shared)
-```
+Your `~/.claude` is the **default** profile — untouched, always there. New profiles are clones stored in `~/.claude-profiles/profiles/<name>/`. Switching sets `CLAUDE_CONFIG_DIR` via a shell hook.
 
-Switching sets `CLAUDE_CONFIG_DIR` to the active profile's directory. Claude Code reads from there instead of `~/.claude`.
+```
+~/.claude/                    <-- default profile (your existing config)
+~/.claude-profiles/
+├── state.json                <-- which profile is active
+└── profiles/
+    └── ruflo/                <-- CLAUDE_CONFIG_DIR points here when active
+        ├── settings.json     <-- different plugins, hooks, permissions
+        ├── mcp.json          <-- different MCP servers
+        └── CLAUDE.md         <-- different instructions
+```
 
 ## Statusline
 
-The active profile shows in your Claude Code statusline:
+Non-default profiles show their name in the Claude Code statusline:
 
 ```
-default | Opus 4.6 (1M context) | ctx 9% | $5.2030 | 1h 4m
-ruflo   | Opus 4.6 (1M context) | ctx 9% | $5.2030 | 1h 4m
+ruflo | Opus 4.6 (1M context) | ctx 9% | $5.2030 | 1h 4m
 ```
 
 ## Commands
 
 ```bash
-claude-profiles init                         # First-time setup
-claude-profiles create <name>                # Create a new profile
-claude-profiles create ruflo --from ~/.claude # Clone from existing config
+claude-profiles create <name>                # Create profile (clones ~/.claude)
 claude-profiles use <name>                   # Switch profile
 claude-profiles list                         # List all profiles (* = active)
 claude-profiles current                      # Show active profile
 claude-profiles delete <name>                # Delete a profile
 claude-profiles toggle plugin <name> on|off  # Toggle plugin per profile
-claude-profiles shell-init                   # Output shell hook
+claude-profiles init                         # Guided setup (optional)
 claude-profiles uninstall                    # Clean removal
 ```
 
-Also available as `/profiles` inside Claude Code.
+Also available as `/profiles`, `/profiles-list`, `/profiles-use`, `/profiles-create`, `/profiles-configure` inside Claude Code.
 
 ## Per-Project Auto-Switching
 
 Add a `.claude-profile` file to any repo:
 
 ```bash
-echo "ruflo" > /path/to/my-project/.claude-profile
+echo "ruflo" > .claude-profile
 ```
 
-When you `cd` into that directory, the shell hook automatically switches to the `ruflo` profile. Leave the directory — switches back to default.
+When you `cd` into that directory, the shell hook automatically switches. Leave — reverts to default.
 
 Like `.nvmrc` for Node.js versions, but for Claude Code configurations.
 
 ### Resolution Chain
 
-Profile is resolved in this order (highest priority first):
-
-1. `CLAUDE_PROFILES_ACTIVE` environment variable
+1. `CLAUDE_PROFILES_ACTIVE` env var (highest priority)
 2. `.claude-profile` file (walks up directory tree)
-3. Default profile from `state.json`
-4. Fallback: `"default"`
+3. Active profile from `state.json`
+4. Fallback: `default` (`~/.claude`)
 
-## Shell Integration
-
-The shell hook enables auto-switching. Add it during `init`, or manually:
+## Install / Uninstall
 
 ```bash
-# Added automatically by `claude-profiles init`
-# Or add manually to .zshrc / .bashrc:
-eval "$(claude-profiles shell-init)"
-```
+# Install — one command, everything configured
+npm install -g claude-profiles
 
-Supports **zsh**, **bash**, and **fish**. Auto-detects your shell.
-
-Uses [conda-style sentinel comments](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) for clean install/uninstall:
-```bash
-# >>> claude-profiles >>>
-# !! Contents within this block are managed by claude-profiles !!
-...
-# <<< claude-profiles <<<
-```
-
-## Uninstall
-
-```bash
+# Uninstall — asks which profile to keep, cleans everything
 claude-profiles uninstall
-```
-
-Asks which profile to keep, restores it as `~/.claude`, removes the shell hook from your config files, and cleans up `~/.claude-profiles`. Then:
-
-```bash
 npm uninstall -g claude-profiles
 ```
 
-Zero orphaned state.
+The install automatically:
+- Adds `/profiles-*` slash commands to Claude Code
+- Installs a shell hook in `.zshrc`/`.bashrc`/`config.fish` (auto-switch on `cd`)
+- Registers a fast-execution hook (so `/profiles-list` responds in ~1s)
+- Adds auto-approve permissions for `claude-profiles` commands
 
-## Design
-
-Inspired by:
-- **[pyenv](https://github.com/pyenv/pyenv)** — resolution chain (env var > file > default)
-- **[direnv](https://github.com/direnv/direnv)** — auto-switch on `cd`
-- **[nvm](https://github.com/nvm-sh/nvm)** — `.nvmrc` convention
-- **[conda](https://docs.conda.io/)** — sentinel comments for shell config
-- **[Codex CLI](https://github.com/openai/codex)** — profile overrides
+The uninstall removes all of the above. `~/.claude` is never modified.
 
 <details>
-<summary>Shared resources</summary>
-
-Plugin cache and project/session data are symlinked from a shared directory — not duplicated per profile. This means:
-- Installing a plugin in one profile makes it available (but not enabled) in all profiles
-- `enabledPlugins` in each profile's `settings.json` controls what's active
-- Conversation history is shared across profiles
-
-</details>
-
-<details>
-<summary>What profiles isolate</summary>
+<summary><strong>What profiles isolate</strong></summary>
 
 Each profile has its own:
 - `settings.json` — plugins, hooks, permissions, model preferences
@@ -173,7 +150,36 @@ Shared across all profiles:
 - Plugin cache (downloaded files)
 - Project/session data
 - Auth credentials
-- Auto-memory (e.g., Ruflo's learned patterns) — stored per-project in `~/.claude/projects/`, not per-profile. This is intentional: memories are about the project, not the profile.
+- Auto-memory (per-project in `~/.claude/projects/`, not per-profile)
+
+</details>
+
+<details>
+<summary><strong>Shell integration details</strong></summary>
+
+The shell hook is added automatically on install using conda-style sentinel comments:
+
+```bash
+# >>> claude-profiles >>>
+# !! Contents within this block are managed by claude-profiles !!
+_claude_profiles_hook() { ... }
+# <<< claude-profiles <<<
+```
+
+Supports **zsh**, **bash**, and **fish**. Auto-detects your shell. Cleanly removed on uninstall.
+
+To add manually instead: `eval "$(claude-profiles shell-init)"`
+
+</details>
+
+<details>
+<summary><strong>Design influences</strong></summary>
+
+- **[pyenv](https://github.com/pyenv/pyenv)** — resolution chain (env var > file > default)
+- **[direnv](https://github.com/direnv/direnv)** — auto-switch on `cd`
+- **[nvm](https://github.com/nvm-sh/nvm)** — `.nvmrc` convention
+- **[conda](https://docs.conda.io/)** — sentinel comments for shell config
+- **[Codex CLI](https://github.com/openai/codex)** — profile overrides
 
 </details>
 
@@ -181,6 +187,11 @@ Shared across all profiles:
 
 - [GitHub Issue #7075](https://github.com/anthropics/claude-code/issues/7075) — Feature request for native Claude Code profiles
 - [Codex CLI Profiles](https://github.com/openai/codex/blob/main/docs/config.md#profiles-and-overrides) — OpenAI's approach
+- [Ruflo](https://github.com/ruvnet/ruflo) — AI agent orchestration (great use case for profiles)
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). PRs welcome.
 
 ## License
 
