@@ -3,8 +3,9 @@
  * Postinstall — sets up everything on npm install:
  * 1. Slash commands in ~/.claude/commands/
  * 2. UserPromptSubmit hook for fast command execution
- * 3. Auto-approve permissions for claude-profiles commands
- * 4. Initialize state.json if not present
+ * 3. Notification hook for profile startup scripts
+ * 4. Auto-approve permissions for claude-profiles commands
+ * 5. Initialize state.json if not present
  *
  * All operations are idempotent and safe to run multiple times.
  * Shell hook for auto-switch on cd is OPTIONAL (run `claude-profiles init`).
@@ -22,10 +23,10 @@ async function main() {
   await installSlashCommands(claudeDir);
   console.log('claude-profiles: /profiles commands installed');
 
-  // 2. UserPromptSubmit hook (fast command execution)
+  // 2. Hooks (UserPromptSubmit + Notification)
   const hookInstalled = await installHooks(claudeDir);
   if (hookInstalled) {
-    console.log('claude-profiles: fast-execution hook installed');
+    console.log('claude-profiles: hooks installed (fast-execution + notification)');
   }
 
   // 3. Initialize state if not present

@@ -72,6 +72,9 @@ Your `~/.claude` is the **default** profile — untouched, always there. New pro
 ~/.claude/                    <-- always the active config (files get swapped in/out)
 ~/.claude-profiles/
 ├── state.json                <-- which profile is active
+├── scripts/                  <-- profile startup scripts (optional)
+│   ├── work.sh               <-- runs when "work" profile is active
+│   └── default.sh            <-- fallback script
 └── saved/
     ├── default/              <-- default profile backup
     └── work/                 <-- work profile config (restored to ~/.claude on switch)
@@ -140,6 +143,24 @@ claude-profiles use default   # back to your original config
 
 Each profile has its own `settings.json`, `mcp.json`, `CLAUDE.md`, `commands/`, and `hooks/`. Switching swaps them all atomically.
 
+## Profile Scripts
+
+Each profile can have a startup script that runs when the Notification hook fires. This lets you inject profile-specific context into Claude — environment info, project details, or setup checks.
+
+```bash
+# Create a script for the "work" profile
+mkdir -p ~/.claude-profiles/scripts
+cat > ~/.claude-profiles/scripts/work.sh << 'EOF'
+#!/usr/bin/env bash
+echo "Project: $(basename "$PWD")"
+echo "Branch: $(git branch --show-current 2>/dev/null)"
+echo "Node: $(node -v 2>/dev/null)"
+EOF
+chmod +x ~/.claude-profiles/scripts/work.sh
+```
+
+Scripts are stored in `~/.claude-profiles/scripts/<name>.sh`. If no profile-specific script exists, `default.sh` is used as a fallback. The `CLAUDE_PROFILE` environment variable is set to the active profile name when the script runs.
+
 ## Per-Project Auto-Switching
 
 Add a `.claude-profile` file to any repo:
@@ -174,6 +195,7 @@ The install automatically:
 - Adds `/profiles-*` slash commands to Claude Code
 - Installs a shell hook in `.zshrc`/`.bashrc`/`config.fish` (auto-switch on `cd`)
 - Registers a fast-execution hook (so `/profiles-list` responds in ~1s)
+- Registers a Notification hook (loads profile startup scripts)
 - Adds auto-approve permissions for `claude-profiles` commands
 
 The uninstall removes all of the above. `~/.claude` is never modified.
