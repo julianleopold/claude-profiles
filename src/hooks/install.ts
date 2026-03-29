@@ -1,7 +1,7 @@
 /**
- * Installs the UserPromptSubmit hook into a Claude Code settings.json.
- * The hook intercepts /profiles commands and runs them via the CLI,
- * injecting the output as context so Claude responds in ~1s instead of ~10s.
+ * Installs hooks into Claude Code settings.json:
+ * 1. UserPromptSubmit — intercepts /profiles commands for fast execution
+ * 2. Notification — loads profile-specific startup scripts for context injection
  */
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -114,6 +114,61 @@ function emitEmpty() { process.stdout.write('{}'); }
 main();
 `;
 
+const NOTIFICATION_MARKER = 'claude-profiles-notification';
+
+/** Notification hook handler — loads profile-specific startup scripts */
+const NOTIFICATION_HANDLER_SCRIPT = `#!/usr/bin/env node
+/**
+ * claude-profiles Notification hook handler.
+ * Loads profile-specific startup scripts and injects output as context.
+ */
+import { readFileSync, existsSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
+
+function main() {
+  const baseDir = process.env.CLAUDE_PROFILES_HOME || join(homedir(), '.claude-profiles');
+  const statePath = join(baseDir, 'state.json');
+
+  let profileName = 'default';
+  try {
+    const state = JSON.parse(readFileSync(statePath, 'utf-8'));
+    profileName = state.activeProfile || 'default';
+  } catch {}
+
+  const scriptsDir = join(baseDir, 'scripts');
+  const profileScript = join(scriptsDir, profileName + '.sh');
+  const defaultScript = join(scriptsDir, 'default.sh');
+
+  const scriptPath = existsSync(profileScript) ? profileScript
+    : existsSync(defaultScript) ? defaultScript
+    : null;
+
+  if (!scriptPath) { emitEmpty(); return; }
+
+  try {
+    const output = execSync('bash "' + scriptPath.replace(/"/g, '\\\\"') + '"', {
+      encoding: 'utf-8',
+      timeout: 5000,
+      env: { ...process.env, CLAUDE_PROFILE: profileName },
+    }).trim();
+
+    if (output) {
+      emit('[claude-profiles] Profile ' + profileName + ':\\n' + output);
+    } else {
+      emitEmpty();
+    }
+  } catch { emitEmpty(); }
+}
+
+function emit(additionalContext) {
+  process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'Notification', additionalContext } }));
+}
+function emitEmpty() { process.stdout.write('{}'); }
+main();
+`;
+
 export async function installHooks(configDir: string): Promise<boolean> {
   const settingsPath = join(configDir, 'settings.json');
 
@@ -126,34 +181,58 @@ export async function installHooks(configDir: string): Promise<boolean> {
     }
   }
 
-  // Check if already installed
-  if (settings.hooks?.UserPromptSubmit) {
-    const existing = settings.hooks.UserPromptSubmit;
-    if (existing.some((h) => h.hooks?.some((hh) => hh.command?.includes(HOOK_MARKER)))) {
-      return false;
-    }
-  }
-
-  // Write the handler script to the config directory
+  let installed = false;
   const handlersDir = join(configDir, 'hooks');
   await mkdir(handlersDir, { recursive: true });
-  const handlerDest = join(handlersDir, 'claude-profiles-hook.mjs');
-  await writeFile(handlerDest, HANDLER_SCRIPT);
 
-  // Add the hook to settings.json
-  settings.hooks = settings.hooks ?? {};
-  settings.hooks.UserPromptSubmit = settings.hooks.UserPromptSubmit ?? [];
+  // --- UserPromptSubmit hook (fast slash command execution) ---
+  const hasPromptHook = settings.hooks?.UserPromptSubmit?.some(
+    (h) => h.hooks?.some((hh) => hh.command?.includes(HOOK_MARKER)),
+  );
 
-  settings.hooks.UserPromptSubmit.push({
-    matcher: '(?i)^\\/?profiles',
-    hooks: [
-      {
-        type: 'command',
-        command: `node "${handlerDest}" # ${HOOK_MARKER}`,
-        timeout: 5000,
-      },
-    ],
-  });
+  if (!hasPromptHook) {
+    const handlerDest = join(handlersDir, 'claude-profiles-hook.mjs');
+    await writeFile(handlerDest, HANDLER_SCRIPT);
+
+    settings.hooks = settings.hooks ?? {};
+    settings.hooks.UserPromptSubmit = settings.hooks.UserPromptSubmit ?? [];
+
+    settings.hooks.UserPromptSubmit.push({
+      matcher: '(?i)^\\/?profiles',
+      hooks: [
+        {
+          type: 'command',
+          command: `node "${handlerDest}" # ${HOOK_MARKER}`,
+          timeout: 5000,
+        },
+      ],
+    });
+    installed = true;
+  }
+
+  // --- Notification hook (profile startup scripts) ---
+  const hasNotificationHook = settings.hooks?.Notification?.some(
+    (h) => h.hooks?.some((hh) => hh.command?.includes(NOTIFICATION_MARKER)),
+  );
+
+  if (!hasNotificationHook) {
+    const notificationDest = join(handlersDir, 'claude-profiles-notification.mjs');
+    await writeFile(notificationDest, NOTIFICATION_HANDLER_SCRIPT);
+
+    settings.hooks = settings.hooks ?? {};
+    settings.hooks.Notification = settings.hooks.Notification ?? [];
+
+    settings.hooks.Notification.push({
+      hooks: [
+        {
+          type: 'command',
+          command: `node "${notificationDest}" # ${NOTIFICATION_MARKER}`,
+          timeout: 5000,
+        },
+      ],
+    });
+    installed = true;
+  }
 
   // Add auto-approve permissions for claude-profiles commands
   settings.permissions = settings.permissions ?? {};
@@ -168,8 +247,10 @@ export async function installHooks(configDir: string): Promise<boolean> {
     }
   }
 
-  await writeFile(settingsPath, JSON.stringify(settings, null, 2) + '\n');
-  return true;
+  if (installed) {
+    await writeFile(settingsPath, JSON.stringify(settings, null, 2) + '\n');
+  }
+  return installed;
 }
 
 export async function uninstallHooks(configDir: string): Promise<boolean> {
@@ -183,16 +264,28 @@ export async function uninstallHooks(configDir: string): Promise<boolean> {
     return false;
   }
 
-  if (!settings.hooks?.UserPromptSubmit) return false;
+  if (!settings.hooks) return false;
 
-  const before = settings.hooks.UserPromptSubmit.length;
-  settings.hooks.UserPromptSubmit = settings.hooks.UserPromptSubmit.filter(
-    (h) => !h.hooks?.some((hh) => hh.command?.includes(HOOK_MARKER)),
-  );
-
-  if (settings.hooks.UserPromptSubmit.length === 0) {
-    delete settings.hooks.UserPromptSubmit;
+  // Remove UserPromptSubmit hook
+  if (settings.hooks.UserPromptSubmit) {
+    settings.hooks.UserPromptSubmit = settings.hooks.UserPromptSubmit.filter(
+      (h) => !h.hooks?.some((hh) => hh.command?.includes(HOOK_MARKER)),
+    );
+    if (settings.hooks.UserPromptSubmit.length === 0) {
+      delete settings.hooks.UserPromptSubmit;
+    }
   }
+
+  // Remove Notification hook
+  if (settings.hooks.Notification) {
+    settings.hooks.Notification = settings.hooks.Notification.filter(
+      (h) => !h.hooks?.some((hh) => hh.command?.includes(NOTIFICATION_MARKER)),
+    );
+    if (settings.hooks.Notification.length === 0) {
+      delete settings.hooks.Notification;
+    }
+  }
+
   if (Object.keys(settings.hooks).length === 0) {
     delete settings.hooks;
   }
