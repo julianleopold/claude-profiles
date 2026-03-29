@@ -11,7 +11,6 @@ import {
   createProfileScript,
   ensureScriptsDir,
 } from '../../src/core/scripts';
-import { saveState } from '../../src/core/state';
 
 describe('Profile Scripts', () => {
   let ctx: TestContext;

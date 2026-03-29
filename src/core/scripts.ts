@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { getProfilesBaseDir, loadState } from './state.js';
 
 /**
@@ -31,16 +31,17 @@ export function runProfileScript(baseDir: string, profileName: string): string {
   const profileScript = getProfileScriptPath(baseDir, profileName);
   const defaultScript = getProfileScriptPath(baseDir, 'default');
 
-  const scriptPath = existsSync(profileScript)
-    ? profileScript
-    : existsSync(defaultScript)
-      ? defaultScript
-      : null;
+  let scriptPath: string | null = null;
+  if (existsSync(profileScript)) {
+    scriptPath = profileScript;
+  } else if (existsSync(defaultScript)) {
+    scriptPath = defaultScript;
+  }
 
   if (!scriptPath) return '';
 
   try {
-    return execSync(`bash "${scriptPath}"`, {
+    return execFileSync('bash', [scriptPath], {
       encoding: 'utf-8',
       timeout: 5000,
       env: { ...process.env, CLAUDE_PROFILE: profileName },

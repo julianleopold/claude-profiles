@@ -123,7 +123,7 @@ const NOTIFICATION_HANDLER_SCRIPT = `#!/usr/bin/env node
  * Loads profile-specific startup scripts and injects output as context.
  */
 import { readFileSync, existsSync } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 
@@ -141,21 +141,24 @@ function main() {
   const profileScript = join(scriptsDir, profileName + '.sh');
   const defaultScript = join(scriptsDir, 'default.sh');
 
-  const scriptPath = existsSync(profileScript) ? profileScript
-    : existsSync(defaultScript) ? defaultScript
-    : null;
+  let scriptPath = null;
+  if (existsSync(profileScript)) {
+    scriptPath = profileScript;
+  } else if (existsSync(defaultScript)) {
+    scriptPath = defaultScript;
+  }
 
   if (!scriptPath) { emitEmpty(); return; }
 
   try {
-    const output = execSync('bash "' + scriptPath.replace(/"/g, '\\\\"') + '"', {
+    const output = execFileSync('bash', [scriptPath], {
       encoding: 'utf-8',
       timeout: 5000,
       env: { ...process.env, CLAUDE_PROFILE: profileName },
     }).trim();
 
     if (output) {
-      emit('[claude-profiles] Profile ' + profileName + ':\\n' + output);
+      emit(\`[claude-profiles] Profile \${profileName}:\\n\${output}\`);
     } else {
       emitEmpty();
     }
